@@ -21,8 +21,9 @@
 // The world is larger than the canvas. The camera follows
 // the player so only part of the world is visible at once.
 // ------------------------------------------------------------
-const WORLD_W = 5000; // total world width in pixels
-const WORLD_H = 2000; // total world height in pixels
+const TILE_SIZE = 50;
+const WORLD_W = TILE_SIZE * 303; // total world width in pixels
+const WORLD_H = TILE_SIZE * 44; // total world height in pixels
 
 // ------------------------------------------------------------
 // CAMERA
@@ -32,12 +33,13 @@ const WORLD_H = 2000; // total world height in pixels
 // ------------------------------------------------------------
 let camX = 0;
 let camY = 0;
-const CAM_SMOOTHING = 0.1;
+const CAM_SMOOTHING = 0.5;
+let camZoom = 0.7;
 
 // ------------------------------------------------------------
 // PLAYER CONFIGURATION
 // ------------------------------------------------------------
-const PLAYER_SPEED = 3;
+const PLAYER_SPEED = 15;
 
 // ------------------------------------------------------------
 // PLAYER
@@ -77,7 +79,7 @@ let obstacles = [];
 
 let tileData;
 let tiles = [];
-const TILE_SIZE = 50;
+
 // ------------------------------------------------------------
 // WAVE SYSTEM
 // Each wave has a triggerY — spawns when player.y < triggerY.
@@ -184,6 +186,8 @@ function draw() {
 
   // Everything inside push/pop is drawn in world coordinates
   push();
+  translate(width / 2, height / 2); scale(camZoom);  // translate to centre and scale the world translate
+  translate(-width / 2, -height / 2); // then translate the world by camera top-left in world pixels
   translate(-camX, -camY);
 
   drawBackground();
@@ -217,6 +221,9 @@ function draw() {
 // Clamps so the camera never shows outside the world.
 // ------------------------------------------------------------
 function updateCamera() {
+  let visibleW = width / camZoom;
+  let visibleH = height / camZoom;
+
   let targetX = player.x - width / 2;
   let targetY = player.y - height / 2;
 
@@ -238,25 +245,27 @@ function drawTiles() {
       let x = t.x * TILE_SIZE;
       let y = t.y * TILE_SIZE;
       if (t.id === "0") {
-        fill("blue");
+        fill("gray"); // spike 1
       } else if (t.id === "1") {
-        fill("white");
+        fill("light blue"); // spike 2
       } else if (t.id === "2") {
-        fill("yellow");
+        fill("purple"); // spike 3
       } else if (t.id === "3") { // for the real json file
-        fill("orange");
-      } else if (t.id === "4") {
-        fill("red");
+        fill("orange"); // spike 4
+      } else if (t.id === "4") { // key
+        fill("yellow");
       } else if (t.id === "5") {
-        fill("purple");
+        fill(0); // rock
       } else if (t.id === "6") {
-        fill("red");
+        fill(0, 0, 200); // water
       } else if (t.id === "7") {
-        fill("blue");
+        fill("blue"); // water top
       } else if (t.id === "8") {
-        fill("light grey");
-      } else if (t.id === "9") {
-        fill("light blue");
+        fill(80, 80, 100); // cave bg
+      } else if (t.id === "9") { 
+        fill(200, 240, 255); //background sky
+      } else if (t.id === "10") {
+        fill("pink");
       } else {
         fill("green");
       }
@@ -294,11 +303,6 @@ function drawObstacles() {
 
     push();
 
-    // Outer glow
-    noStroke();
-    fill(255, 100, 0, glow);
-    rect(x - 4, y - 4, s + 8, s + 8, 8);
-
     // Lava base
     fill(180, 40, 0);
     rect(x, y, s, s, 4);
@@ -316,12 +320,6 @@ function drawObstacles() {
     line(x + s * 0.5, y + s * 0.4, x + s * 0.7, y + s * 0.6);
     line(x, y + s * 0.5, x + s * 0.3, y + s * 0.7);
     line(x + s * 0.3, y + s * 0.7, x + s * 0.6, y + s);
-
-    // Hot edge highlight
-    noStroke();
-    fill(255, 140, 0, 180);
-    rect(x, y, s, 3, 2);
-    rect(x, y, 3, s, 2);
 
     pop();
   }
@@ -386,7 +384,6 @@ function applyBounce() {
 // ------------------------------------------------------------
 // drawBackground()
 // Draws background shapes in world coordinates.
-// Only shapes near the camera are drawn for performance.
 // ------------------------------------------------------------
 function drawBackground() {
   noStroke();
@@ -427,18 +424,6 @@ function handleInput() {
   player.x = constrain(player.x, player.r, WORLD_W - player.r);
   player.y = constrain(player.y, player.r, WORLD_H - player.r);
 
-  if (player.shootTimer > 0) player.shootTimer--;
-
-  if (keyIsDown(32) && player.shootTimer === 0) {
-    bullets.push({
-      x: player.x + player.direction.x * (player.r + 4),
-      y: player.y + player.direction.y * (player.r + 4),
-      vx: player.direction.x * BULLET_SPEED,
-      vy: player.direction.y * BULLET_SPEED,
-    });
-    player.shootTimer = SHOOT_COOLDOWN;
-    // shootSound.play();
-  }
 }
 
 // ------------------------------------------------------------
@@ -489,13 +474,6 @@ function drawPlayer() {
   fill(10);
   ellipse(player.x - 7, player.y - 5, 7, 7);
   ellipse(player.x + 7, player.y - 5, 7, 7);
-
-  fill(255);
-  ellipse(
-    player.x + player.direction.x * (player.r - 4),
-    player.y + player.direction.y * (player.r - 4),
-    8,
-  );
 
   pop();
   player.blobT += 0.015;
