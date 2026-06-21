@@ -38,9 +38,6 @@ const CAM_SMOOTHING = 0.1;
 // PLAYER CONFIGURATION
 // ------------------------------------------------------------
 const PLAYER_SPEED = 3;
-const BULLET_SPEED = 10;
-const SHOOT_COOLDOWN = 12;
-const INVINCIBLE_FRAMES = 90;
 
 // ------------------------------------------------------------
 // PLAYER
@@ -48,11 +45,11 @@ const INVINCIBLE_FRAMES = 90;
 // Starts near the bottom centre of the world.
 // ------------------------------------------------------------
 let player = {
-  x: WORLD_W / 2,
-  y: WORLD_H - 200,
+  x: 1,
+  y: 1,
   r: 22,
   blobT: 0,
-  direction: { x: 0, y: -1 },
+  direction: { x: 0, y: -1 }, 
   shootTimer: 0,
   health: 5,
   maxHealth: 5,
