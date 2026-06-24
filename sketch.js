@@ -49,6 +49,23 @@ const FISH_SPRITE = {
   },
 };
 
+// ------------------------------------------------------------
+// HUMAN SPRITE CONFIGURATION (start area cat character)
+// ------------------------------------------------------------
+const HUMAN_SPRITE = {
+  frameWidth: 0,   // set in setup()
+  frameHeight: 0,  // set in setup()
+  numFrames: 4,
+  animSpeed: 10,
+  scale: 1,
+  rows: {
+    right: 0,
+    left: 1,
+  },
+};
+
+let humanSheet;
+
 const BIRD_SPRITE = {
   frameWidth: 500,
   frameHeight: 500,
@@ -66,12 +83,17 @@ const BIRD_SPRITE = {
 };
 
 const GRAVITY = 0.4; // 4.0  Calibrated downward pull
+const GRAVITY_AFTER_CHECKPOINT = GRAVITY * 0.6; // 60% of normal gravity after first checkpoint
 const FLAP_FORCE = -4; // -24 // Gives the exact velocity curve to hit 3 blocks high
 const TERMINAL_VELOCITY = 20;
+const HUMAN_GRAVITY = 0.9;
+const HUMAN_SPEED = 10;
+
+const TILE_SIZE = 50;
 
 let player = {
-  x: 0,
-  y: 0,
+  x: 2 * TILE_SIZE,
+  y: 2 * TILE_SIZE,
   r: 22,
 
   // Animation state variables
@@ -87,7 +109,23 @@ let player = {
   invincibleTimer: 0,
   bounceVX: 0,
   bounceVY: 0,
+  isGrounded: false,
+  jumpCooldown: 0,
 };
+
+// ------------------------------------------------------------
+// WHIRLPOOL SPRITE CONFIGURATION
+// ------------------------------------------------------------
+const WHIRLPOOL_SPRITE = {
+  numFrames: 4,     // 4 frames horizontal
+  animSpeed: 8,     // Lower number = faster rotation speed
+  scale: 1.0        // Scale adjustment if needed to fit TILE_SIZE
+};
+
+let whirlpoolImg;     // Holds the portal(db).png texture asset
+let whirlpoolFrame = 0;
+let whirlpoolTimer = 0;
+
 
 // ------------------------------------------------------------
 // BULLETS and ENEMIES
@@ -105,7 +143,9 @@ let enemies = [];
 let obstacleData;
 let obstacles = [];
 
-let tileData;
+let startArea;
+let birdArea;
+let fishArea;
 let tiles = [];
 
 let waterTiles = [];
@@ -117,10 +157,13 @@ let spike1Img;
 let spike2Img;
 let spike3Img;
 let spike4Img;
+
 let fishareaBG;
 let fishareaOverlay;
+let cavebg;
+
+
 let fishSheet; //fish sprite sheet
-let fishArea;
 let birdSheet; //bird sprite sheet
 
 // ------------------------------------------------------------
@@ -208,6 +251,7 @@ function preload() {
   startArea = loadJSON("data/startarea.json");
   birdArea = loadJSON("data/birdarea.json");
   fishArea = loadJSON("data/fisharea.json");
+  endArea = loadJSON("data/endarea.json");
 
   fishSheet = loadImage("assets/fish.png");
   seaweedImg = loadImage("assets/seaweed.png");
@@ -220,7 +264,9 @@ function preload() {
   spike4Img = loadImage("assets/spike4.png");
   fishareaBG = loadImage("assets/fishareaBG.png");
   fishareaOverlay = loadImage("assets/fishareaoverlay.png");
+  cavebg = loadImage("assets/cavebg.png");
   birdSheet = loadImage("assets/bird.png");
+  humanSheet = loadImage("assets/human.png");
 
   // Uncomment to load sounds:
   // shootSound     = loadSound("assets/sounds/shoot.wav");
@@ -232,14 +278,17 @@ function preload() {
   // music          = loadSound("assets/sounds/music.mp3");
 }
 
-const TILE_SIZE = 50;
-
 // ============================================================
 // setup()
 // ============================================================
 function setup() {
   createCanvas(800, 450);
-  WORLD_W = TILE_SIZE * (birdArea.mapWidth + fishArea.mapWidth); // total world width in pixels
+  WORLD_W =
+    TILE_SIZE *
+    (startArea.mapWidth +
+      birdArea.mapWidth +
+      fishArea.mapWidth +
+      endArea.mapWidth); // total world width in pixels
   WORLD_H = TILE_SIZE * (birdArea.mapHeight + fishArea.mapHeight); // total world height in pixels
   bossData = enemyData.boss;
   console.log("birdArea=", birdArea);
@@ -248,13 +297,16 @@ function setup() {
   FISH_SPRITE.frameWidth = fishSheet.width / 2;
   FISH_SPRITE.frameHeight = fishSheet.height / 2;
 
+  HUMAN_SPRITE.frameWidth  = humanSheet.width  / HUMAN_SPRITE.numFrames;
+  HUMAN_SPRITE.frameHeight = humanSheet.height / 2;
+
   // Build obstacle objects from JSON
   for (let i = 0; i < obstacleData.obstacles.length; i++) {
     let o = obstacleData.obstacles[i];
     obstacles.push({ x: o.x, y: o.y, size: o.size });
   }
 
-  const tilesArray = tileData.layers?.[0]?.tiles || [];
+  const tilesArray = birdArea.layers?.[0]?.tiles || [];
   for (let i = 0; i < tilesArray.length; i++) {
     const t = tilesArray[i];
     tiles.push({ x: t.x, y: t.y, id: t.id });
@@ -293,10 +345,20 @@ function draw() {
   translate(-width / 2, -height / 2); // then translate the world by camera top-left in world pixels
   translate(-camX, -camY);
 
-  drawBackground();
+  //drawBackground();
+
+  if (player.x < TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth / 2)) {
+    drawTiles(startArea);
+    print("start area drawn");
+  }
+
+  //if (player.x > TILE_SIZE * startArea.mapWidth / 2) {
+  drawTiles(birdArea);
+  //print("bird area drawn")
+  //}
 
   // if player is near y lvel of fish area
-  if (player.y > TILE_SIZE * (tileData.mapHeight - tileData.mapHeight / 7)) {
+  if (player.y > TILE_SIZE * (birdArea.mapHeight - birdArea.mapHeight / 7)) {
     // add end of fish area boundary later
     drawTiles(fishArea); // fish area
     console.log("fish area drawn");
@@ -308,6 +370,12 @@ function draw() {
     animateCharacter();
     applyBounce();
 
+    whirlpoolTimer++;
+    if (whirlpoolTimer >= WHIRLPOOL_SPRITE.animSpeed) {
+      whirlpoolTimer = 0;
+      whirlpoolFrame = (whirlpoolFrame + 1) % WHIRLPOOL_SPRITE.numFrames;
+    }
+
     // ADDED — tile physics: solid blockage, hazards, checkpoints
     resolveSolidCollisions();
     checkWhirlpools();
@@ -317,14 +385,13 @@ function draw() {
     checkObstaclePlayerCollision(); // was defined but never called
 
     drawObstacles();
-    drawTiles(tileData);
 
     drawPlayer();
 
     // ADDED: draw fish area overlay on top of everything (world coordinates)
     if (fishareaOverlay) {
-      const fishAreaOffsetX = TILE_SIZE * (tileData.mapWidth - 33);
-      const fishAreaOffsetY = TILE_SIZE * tileData.mapHeight;
+      const fishAreaOffsetX = TILE_SIZE * (birdArea.mapWidth - 33);
+      const fishAreaOffsetY = TILE_SIZE * birdArea.mapHeight;
       image(fishareaOverlay, fishAreaOffsetX, fishAreaOffsetY, 1900, 800);
     }
   }
@@ -338,10 +405,23 @@ function draw() {
 // animateCharacter() — Dynamic state animation processing
 // ------------------------------------------------------------
 function animateCharacter() {
-  let inSea = playerInWater();
+  let inSea   = playerInWater();
+  let inStart = player.x < TILE_SIZE * startArea.mapWidth;
 
-  if (inSea) {
-    // Fish Animation Logic
+  if (inStart) {
+    if (player.isMoving) {
+      player.frameTimer++;
+      if (player.frameTimer >= HUMAN_SPRITE.animSpeed) {
+        player.frameTimer = 0;
+        player.currentFrame = (player.currentFrame + 1) % HUMAN_SPRITE.numFrames;
+      }
+    } else {
+      player.currentFrame = 0;
+      player.frameTimer = 0;
+    }
+    
+  } else if (inSea) {
+    // Fish animation (unchanged)
     if (player.isMoving) {
       player.frameTimer++;
       if (player.frameTimer >= FISH_SPRITE.animSpeed) {
@@ -350,15 +430,14 @@ function animateCharacter() {
       }
     } else {
       player.currentFrame = 0;
-      player.frameTimer = 0;
+      player.frameTimer   = 0;
     }
-  } else {
-    // Bird Animation Logic
-    let isFlapping = keyIsDown(32); // Check if spacebar is actively pressed
-    let currentAnimMode = isFlapping ? "flying" : "running";
-    let maxFrames = BIRD_SPRITE.maxFrames[currentAnimMode];
 
-    // Only advance frames if the bird is running along the ground or actively flapping to fly
+  } else {
+    // Bird animation (unchanged)
+    let isFlapping      = keyIsDown(32);
+    let currentAnimMode = isFlapping ? "flying" : "running";
+    let maxFrames       = BIRD_SPRITE.maxFrames[currentAnimMode];
     if (isFlapping || player.isMoving) {
       player.frameTimer++;
       if (player.frameTimer >= BIRD_SPRITE.animSpeed) {
@@ -366,9 +445,8 @@ function animateCharacter() {
         player.currentFrame = (player.currentFrame + 1) % maxFrames;
       }
     } else {
-      // Idle on land: Freeze on the first frame of the running row
       player.currentFrame = 0;
-      player.frameTimer = 0;
+      player.frameTimer   = 0;
     }
   }
 }
@@ -407,6 +485,11 @@ function updateInvincibility() {
       player.invincibleTimer = 0;
     }
   }
+
+  // Tick down jump cooldown
+  if (player.jumpCooldown > 0) {
+    player.jumpCooldown--;
+  }
 }
 
 // ============================================================
@@ -416,7 +499,7 @@ function updateInvincibility() {
 // ------------------------------------------------------------
 // processJsonLayers()
 // Helper function to extract and categorize tiles from a JSON
-// file's layers. Can be called for tileData, fishArea, or any
+// file's layers. Can be called for birdArea, fishArea, or any
 // other future JSON files to build a unified collision system.
 // Applies world offsets so fishArea tiles are positioned correctly.
 // ------------------------------------------------------------
@@ -425,7 +508,7 @@ function processJsonLayers(
   checkpointTiles,
   coinTiles,
   offsetX = 0,
-  offsetY = 0
+  offsetY = 0,
 ) {
   if (!jsonFile || !jsonFile.layers) return;
 
@@ -472,10 +555,10 @@ function processJsonLayers(
 
 // ------------------------------------------------------------
 // buildTileCollision()
-// Walks every layer in tileData once, sorting tiles into
+// Walks every layer in birdArea once, sorting tiles into
 // solidTiles / hazardTiles / raw checkpoint tiles based on the
 // layer's name. Called once from setup(). Call it again if you
-// ever swap tileData for a different scene/map at runtime.
+// ever swap birdArea for a different scene/map at runtime.
 // ------------------------------------------------------------
 function buildTileCollision() {
   solidTiles = [];
@@ -485,18 +568,22 @@ function buildTileCollision() {
   whirlpoolTiles = [];
   waterTiles = [];
 
-  // Process layers from tileData (no offset)
-  processJsonLayers(tileData, checkpointTiles, coinTiles, 0, 0);
+  processJsonLayers(startArea, checkpointTiles, coinTiles, 0, 0);
+
+  // Process layers from birdArea (no offset)
+  //processJsonLayers(startArea, checkpointTiles, coinTiles, 0, 0)
+  //processJsonLayers(birdArea, checkpointTiles, coinTiles, 0, 0);
+  processJsonLayers(birdArea, checkpointTiles, coinTiles, startArea.mapWidth * TILE_SIZE, 0);
 
   // Process layers from fishArea with world offsets
-  const fishAreaOffsetX = TILE_SIZE * (tileData.mapWidth - 33);
-  const fishAreaOffsetY = TILE_SIZE * tileData.mapHeight;
+  const fishAreaOffsetX = TILE_SIZE * (birdArea.mapWidth - 33);
+  const fishAreaOffsetY = TILE_SIZE * birdArea.mapHeight;
   processJsonLayers(
     fishArea,
     checkpointTiles,
     coinTiles,
     fishAreaOffsetX,
-    fishAreaOffsetY
+    fishAreaOffsetY,
   );
 
   function playerInWater() {
@@ -512,6 +599,9 @@ function buildTileCollision() {
   }
 
   checkpoints = groupCheckpointTiles(checkpointTiles);
+  console.log("Checkpoints found:", checkpoints.length, checkpoints);
+  console.log("Total checkpoint tiles:", checkpointTiles.length);
+
   // register coins
   coinMap = new Map();
   coinsTotal = coinTiles.length;
@@ -634,7 +724,8 @@ function resolveCircleRect(p, rect) {
     else if (min === right) p.x = rect.x + rect.w + p.r;
     else if (min === top) {
       p.y = rect.y - p.r;
-      if (p.vy > 0) p.vy = 0; // <-- Lands on top of a tile, stop gravity velocity accumulation
+      if (p.vy > 0) p.vy = 0;
+      player.isGrounded = true; 
     } else p.y = rect.y + rect.h + p.r;
   }
 }
@@ -677,6 +768,7 @@ function checkCheckpoints() {
       player.y + player.r > cp.y && player.y - player.r < cp.y + cp.h;
 
     if (overlapsX && overlapsY) {
+      console.log("Checkpoint reached:", i, cp);
       activeCheckpointIndex = i;
       lastCheckpoint = { x: cp.spawnX, y: cp.spawnY };
       // Hook a sound/flash/UI message here if you'd like to
@@ -707,16 +799,16 @@ function killPlayer() {
 
 // ------------------------------------------------------------
 // respawnPlayer()
-// Moves the player to the last checkpoint reached, or back to
-// the original start position if none has been reached yet.
+// When the player loses health, spawn at the closest checkpoint
+// they have passed, with (0, 0) as the fallback.
 // Grants a short invincibility window so they don't immediately
 // die again on the same hazard.
 // ------------------------------------------------------------
 function respawnPlayer() {
-  const spawn =
-    lastCheckpoint ||
-    findClosestPassedCheckpoint(player.x, player.y) ||
-    playerStart;
+  const spawn = findClosestPassedCheckpoint(player.x, player.y) || 
+  lastCheckpoint ||
+  playerStart; 
+ 
 
   player.x = spawn.x;
   player.y = spawn.y;
@@ -741,29 +833,6 @@ function findClosestPassedCheckpoint(px, py) {
   let minD = Infinity;
   for (let i = 0; i <= activeCheckpointIndex && i < checkpoints.length; i++) {
     const cp = checkpoints[i];
-    const d = dist(px, py, cp.spawnX, cp.spawnY);
-    if (d < minD) {
-      minD = d;
-      best = {
-        x: cp.spawnX,
-        y: cp.spawnY,
-      };
-    }
-  }
-
-  return best;
-}
-
-// ------------------------------------------------------------
-// findClosestCheckpoint()
-// Returns the spawn {x,y} of the nearest checkpoint zone, or
-// the original playerStart if none exist.
-// ------------------------------------------------------------
-function findClosestCheckpoint(px, py) {
-  let best = playerStart;
-  let minD = dist(px, py, playerStart.x, playerStart.y);
-
-  for (const cp of checkpoints) {
     const d = dist(px, py, cp.spawnX, cp.spawnY);
     if (d < minD) {
       minD = d;
@@ -807,7 +876,7 @@ function respawnFromHazard() {
 function checkCollectables() {
   if (coinsTotal === 0 || allCoinsCollected) return;
 
-  for (const layer of tileData.layers) {
+  for (const layer of birdArea.layers) {
     if (layer.name !== COLLECTABLE_LAYER) continue;
     for (const t of layer.tiles) {
       const key = t.x + "," + t.y;
@@ -878,61 +947,94 @@ function playerInWater() {
 function drawTiles(jsonFile) {
   const layers = jsonFile.layers;
   let rockPositions = null;
-  if (jsonFile === tileData) {
-    rockPositions = new Set();
-    for (const rockLayer of layers) {
-      if (rockLayer.name === "rock") {
-        for (const tile of rockLayer.tiles) {
-          rockPositions.add(`${tile.x},${tile.y}`);
-        }
+
+  rockPositions = new Set();
+  for (const rockLayer of layers) {
+    if (rockLayer.name === "rock") {
+      for (const tile of rockLayer.tiles) {
+        rockPositions.add(`${tile.x},${tile.y}`);
       }
     }
   }
 
-  // First pass: draw only water layers
-  for (let l = layers.length - 1; l > -1; l--) {
-    const layer = layers[l];
-    if (layer.name !== "water") continue;
 
-    for (let i = 0; i < layer.tiles.length; i++) {
-      let t = layer.tiles[i];
-      push();
-      let mapXOffset = 0;
-      let mapYOffset = 0;
+// First pass: draw only water layers
+for (let l = layers.length - 1; l > -1; l--) {
+  const layer = layers[l];
+  if (layer.name !== "water") continue;
 
-      if (jsonFile == fishArea) {
-        mapXOffset = TILE_SIZE * (tileData.mapWidth - 33);
-        mapYOffset = TILE_SIZE * tileData.mapHeight;
-      }
-      if (jsonFile == birdArea) {
-        mapXOffset = TILE_SIZE * (tileData.mapWidth - 33);
-        mapYOffset = TILE_SIZE * tileData.mapHeight;
-      }
-      let x = t.x * TILE_SIZE + mapXOffset;
-      let y = t.y * TILE_SIZE + mapYOffset;
-      fill(tileColor(layer.name, t.id));
-      rect(x, y, TILE_SIZE, TILE_SIZE);
-      pop();
+  for (let i = 0; i < layer.tiles.length; i++) {
+    let t = layer.tiles[i];
+    push();
+    let mapXOffset = 0;
+    let mapYOffset = 0;
+
+    if (jsonFile == startArea) {
+      //mapYOffset = TILE_SIZE * 5; // shift down to bird area level
     }
+
+    if (jsonFile == birdArea) {
+      mapXOffset = TILE_SIZE * startArea.mapWidth;
+      mapYOffset = 0;
+    }
+    if (jsonFile == fishArea) {
+      mapXOffset = TILE_SIZE * (birdArea.mapWidth - 33);
+      mapYOffset = TILE_SIZE * birdArea.mapHeight;
+    }
+
+    let x = t.x * TILE_SIZE + mapXOffset;
+    let y = t.y * TILE_SIZE + mapYOffset;
+    fill(tileColor(layer.name, t.id));
+    rect(x, y, TILE_SIZE, TILE_SIZE);
+    pop();
+  }
+}
+
+// Draw background image for fish area after water but before other tiles
+if (jsonFile === fishArea && fishareaBG) {
+  const fishAreaOffsetX = TILE_SIZE * (birdArea.mapWidth - 33);
+  const fishAreaOffsetY = TILE_SIZE * birdArea.mapHeight;
+  image(fishareaBG, fishAreaOffsetX, fishAreaOffsetY, 1900, 800);
+}
+
+// Second pass: draw all non-water layers
+  // For birdArea, draw the bg green layer first, then the cavebg image,
+  // then all remaining non-water layers so cavebg stays under the rest.
+  if (jsonFile === birdArea && cavebg) {
+    const mapXOffset = TILE_SIZE * startArea.mapWidth;
+    const mapYOffset = 0;
+
+    // Draw bg green tiles first so cavebg can sit above them.
+    for (let l = layers.length - 1; l > -1; l--) {
+      const layer = layers[l];
+      if (layer.name !== "bg green") continue;
+
+      for (let i = 0; i < layer.tiles.length; i++) {
+        const t = layer.tiles[i];
+        const x = t.x * TILE_SIZE + mapXOffset;
+        const y = t.y * TILE_SIZE + mapYOffset;
+        fill(tileColor(layer.name, t.id));
+        rect(x, y, TILE_SIZE, TILE_SIZE);
+      }
+    }
+
+    // Draw cavebg using its original dimensions, aligned to the
+    // top-right corner of the birdArea section.
+    const areaWidth = birdArea.mapWidth * TILE_SIZE;
+    const caveX = mapXOffset + areaWidth - cavebg.width;
+    const caveY = mapYOffset; // top edge of birdArea
+
+    image(cavebg, caveX, caveY);
   }
 
-  // Draw background image for fish area after water but before other tiles
-  if (jsonFile === fishArea && fishareaBG) {
-    const fishAreaOffsetX = TILE_SIZE * (tileData.mapWidth - 33);
-    const fishAreaOffsetY = TILE_SIZE * tileData.mapHeight;
-    image(fishareaBG, fishAreaOffsetX, fishAreaOffsetY, 1900, 800);
-  }
-
-  // Second pass: draw all non-water layers
   for (let l = layers.length - 1; l > -1; l--) {
     // for each layer we will....
     const layer = layers[l];
     if (layer.name === "water") continue; // skip water, already drawn
+    if (jsonFile === birdArea && layer.name === "bg green") continue; // already drawn
     let spikePositions = null;
-    if (jsonFile === tileData && layer.name === "spikes") {
-      spikePositions = new Set(
-        layer.tiles.map((tile) => `${tile.x},${tile.y}`)
-      );
+    if (jsonFile === birdArea && layer.name === "spikes") {
+      spikePositions = new Set(layer.tiles.map((tile) => `${tile.x},${tile.y}`));
     }
     for (let i = 0; i < layer.tiles.length; i++) {
       let t = layer.tiles[i];
@@ -944,9 +1046,17 @@ function drawTiles(jsonFile) {
       let mapXOffset = 0; // where the json is in relation to 0,0
       let mapYOffset = 0;
 
-      if (jsonFile == fishArea) {
-        mapXOffset = TILE_SIZE * (tileData.mapWidth - 33);
-        mapYOffset = TILE_SIZE * tileData.mapHeight;
+      if (jsonFile === startArea) {
+        //mapYOffset = TILE_SIZE * 5;
+      }
+
+      if (jsonFile === birdArea) {
+        mapXOffset = TILE_SIZE * startArea.mapWidth;
+        mapYOffset = 0;
+      }
+      if (jsonFile === fishArea) {
+        mapXOffset = TILE_SIZE * (birdArea.mapWidth - 33);
+        mapYOffset = TILE_SIZE * birdArea.mapHeight;
       }
 
       let x = t.x * TILE_SIZE + mapXOffset;
@@ -968,10 +1078,33 @@ function drawTiles(jsonFile) {
         fill(tileColor(layer.name, t.id));
         ellipse(x + TILE_SIZE / 2, y + TILE_SIZE / 2, TILE_SIZE * 0.6);
       } else if (layer.name === WHIRLPOOL_LAYER) {
-        fill(tileColor(layer.name, t.id));
-        rect(x, y, TILE_SIZE, TILE_SIZE, TILE_SIZE * 0.25);
-        fill(10, 50, 120, 160);
-        ellipse(x + TILE_SIZE / 2, y + TILE_SIZE / 2, TILE_SIZE * 0.6);
+        if (whirlpoolImg) {
+          let frameW = whirlpoolImg.width / WHIRLPOOL_SPRITE.numFrames;
+          let frameH = whirlpoolImg.height;
+
+          let sx = whirlpoolFrame * frameW;
+          let sy = 0;
+
+          push();
+          imageMode(CENTER);
+          // Anchor coordinates safely to the center of the tile
+          translate(x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+          image(
+            whirlpoolImg,
+            0, 0,
+            TILE_SIZE * WHIRLPOOL_SPRITE.scale,
+            TILE_SIZE * WHIRLPOOL_SPRITE.scale,
+            sx, sy,
+            frameW, frameH
+          );
+          pop();
+        } else {
+          // Decorative structural fallback loop
+          fill(tileColor(layer.name, t.id));
+          rect(x, y, TILE_SIZE, TILE_SIZE, TILE_SIZE * 0.25);
+          fill(10, 50, 120, 160);
+          ellipse(x + TILE_SIZE / 2, y + TILE_SIZE / 2, TILE_SIZE * 0.6);
+        }
       } else if (jsonFile === fishArea && layer.name === "sand") {
         if (sandImg) {
           image(sandImg, x, y, TILE_SIZE, TILE_SIZE);
@@ -986,14 +1119,17 @@ function drawTiles(jsonFile) {
           fill(tileColor(layer.name, t.id));
           rect(x, y, TILE_SIZE, TILE_SIZE);
         }
-      } else if (jsonFile === tileData && layer.name === "rock") {
+      } else if ((jsonFile === birdArea || jsonFile === startArea) && layer.name === "rock") {
         if (rockImg) {
           image(rockImg, x, y, TILE_SIZE, TILE_SIZE);
         } else {
           fill(tileColor(layer.name, t.id));
           rect(x, y, TILE_SIZE, TILE_SIZE);
         }
-      } else if (jsonFile === tileData && layer.name === "spikes") {
+      } else if ((jsonFile === birdArea || jsonFile === startArea) && layer.name === "background sky") {
+        fill(tileColor(layer.name, t.id));
+        rect(x, y, TILE_SIZE, TILE_SIZE);
+      } else if (jsonFile === birdArea && layer.name === "spikes") {
         const leftNeighbor = spikePositions.has(`${t.x - 1},${t.y}`);
         const rightNeighbor = spikePositions.has(`${t.x + 1},${t.y}`);
         const rockAbove = rockPositions.has(`${t.x},${t.y - 1}`);
@@ -1051,8 +1187,8 @@ function drawTiles(jsonFile) {
       }
 
       pop();
-    }
   }
+}
 }
 
 // ------------------------------------------------------------
@@ -1077,8 +1213,8 @@ function tileColor(layerName, id) {
       return color(30, 100, 200); // blue whirlpool
     case "water":
       return color(20, 60, 160, 160); // blue — background
-    case "bg green":
-      return color(140, 200, 140, 160); // pale green — background
+    case "background sky":
+      return color("lightblue"); // pale blue — background
   }
 
   // fallback: old id-based colours, for any layer name not listed above
@@ -1210,46 +1346,45 @@ function drawBackground() {
 function handleInput() {
   player.isMoving = false;
   let inSea = playerInWater();
+  let inStart = player.x < TILE_SIZE * startArea.mapWidth;
 
-  // --- Horizontal Movement (Shared by both forms) ---
+  // --- Horizontal Movement ---
   if (keyIsDown(65)) {
-    // A - Left
-    player.x -= moveSpeed;
+    player.x -= inStart ? HUMAN_SPEED : moveSpeed;
     player.facing = "left";
     player.isMoving = true;
   }
   if (keyIsDown(68)) {
-    // D - Right
-    player.x += moveSpeed;
+    player.x += inStart ? HUMAN_SPEED : moveSpeed;
     player.facing = "right";
     player.isMoving = true;
   }
 
   // --- Vertical Movement (Context Dependent) ---
   if (inSea) {
-    // Standard swimming mechanics inside the water
-    player.vy = 0; // Cancel out residual gravity values
-    if (keyIsDown(87)) {
-      // W - Up
-      player.y -= moveSpeed;
-      player.isMoving = true;
-    }
-    if (keyIsDown(83)) {
-      // S - Down
-      player.y += moveSpeed;
-      player.isMoving = true;
-    }
+    player.vy = 0;
+    if (keyIsDown(87)) { player.y -= moveSpeed; player.isMoving = true; }
+    if (keyIsDown(83)) { player.y += moveSpeed; player.isMoving = true; }
+
   } else {
-    // Air/Land mechanics: Apply gravity over time
-    player.vy += GRAVITY;
+    const currentGravity = activeCheckpointIndex >= 0 ? GRAVITY_AFTER_CHECKPOINT : GRAVITY;
+
+    if (inStart) {
+      player.vy += HUMAN_GRAVITY;
+    } else {
+      player.vy += currentGravity;
+    }
+
     player.vy = constrain(player.vy, -TERMINAL_VELOCITY, TERMINAL_VELOCITY);
     player.y += player.vy;
 
-    // Press SPACEBAR to fly/flap upward
-    if (keyIsDown(32)) {
-      // Spacebar
-      player.vy = FLAP_FORCE;
+    if (!inStart) {
+      if (keyIsDown(32)) {
+        player.vy = FLAP_FORCE;
+      }
     }
+
+    player.isGrounded = false;
   }
 
   // Constrain to world bounds
@@ -1285,59 +1420,45 @@ function drawPlayer() {
   if (player.invincible && floor(player.invincibleTimer / 6) % 2 === 0) return;
 
   let inSea = playerInWater();
+  let inStart = player.x < TILE_SIZE * startArea.mapWidth; // before bird area
 
   push();
-  imageMode(CENTER); // Safely isolate centering mechanics inside push/pop
+  imageMode(CENTER);
 
-  if (inSea) {
-    // --- Render Fish ---
+  if (inStart) {
+    let row = HUMAN_SPRITE.rows[player.facing] ?? 0; // row 0 = right, row 1 = left
+    let sx  = player.currentFrame * HUMAN_SPRITE.frameWidth;
+    let sy  = row * HUMAN_SPRITE.frameHeight;
+    let dw  = HUMAN_SPRITE.frameWidth  * HUMAN_SPRITE.scale;
+    let dh  = HUMAN_SPRITE.frameHeight * HUMAN_SPRITE.scale;
+    image(humanSheet, player.x, player.y, dw, dh,
+          sx, sy, HUMAN_SPRITE.frameWidth, HUMAN_SPRITE.frameHeight);
+
+  } else if (inSea) {
+    // --- Render Fish --- (existing code unchanged)
     let row = FISH_SPRITE.rows[player.facing];
-    let sx = player.currentFrame * FISH_SPRITE.frameWidth;
-    let sy = row * FISH_SPRITE.frameHeight;
-    let dw = FISH_SPRITE.frameWidth * FISH_SPRITE.scale;
-    let dh = FISH_SPRITE.frameHeight * FISH_SPRITE.scale;
+    let sx  = player.currentFrame * FISH_SPRITE.frameWidth;
+    let sy  = row * FISH_SPRITE.frameHeight;
+    let dw  = FISH_SPRITE.frameWidth  * FISH_SPRITE.scale;
+    let dh  = FISH_SPRITE.frameHeight * FISH_SPRITE.scale;
+    image(fishSheet, player.x, player.y, dw, dh, sx, sy,
+          FISH_SPRITE.frameWidth, FISH_SPRITE.frameHeight);
 
-    image(
-      fishSheet,
-      player.x,
-      player.y,
-      dw,
-      dh,
-      sx,
-      sy,
-      FISH_SPRITE.frameWidth,
-      FISH_SPRITE.frameHeight
-    );
   } else {
-    // --- Render Bird ---
-    let isFlapping = keyIsDown(32);
-    let animMode = isFlapping ? "flying" : "running";
-    let row = BIRD_SPRITE.rows[animMode];
-
-    // If we just stopped flapping, make sure our frame target doesn't exceed the running row's max frames
-    let safeFrame = player.currentFrame % BIRD_SPRITE.maxFrames[animMode];
-
+    // --- Render Bird --- (existing code unchanged)
+    let isFlapping  = keyIsDown(32);
+    let animMode    = isFlapping ? "flying" : "running";
+    let row         = BIRD_SPRITE.rows[animMode];
+    let safeFrame   = player.currentFrame % BIRD_SPRITE.maxFrames[animMode];
     let sx = safeFrame * BIRD_SPRITE.frameWidth;
-    let sy = row * BIRD_SPRITE.frameHeight;
-    let dw = BIRD_SPRITE.frameWidth * BIRD_SPRITE.scale;
+    let sy = row       * BIRD_SPRITE.frameHeight;
+    let dw = BIRD_SPRITE.frameWidth  * BIRD_SPRITE.scale;
     let dh = BIRD_SPRITE.frameHeight * BIRD_SPRITE.scale;
 
     translate(player.x, player.y);
-    if (player.facing === "left") {
-      scale(-1, 1);
-    }
-
-    image(
-      birdSheet,
-      0,
-      0,
-      dw,
-      dh,
-      sx,
-      sy,
-      BIRD_SPRITE.frameWidth,
-      BIRD_SPRITE.frameHeight
-    );
+    if (player.facing === "left") scale(-1, 1);
+    image(birdSheet, 0, 0, dw, dh, sx, sy,
+          BIRD_SPRITE.frameWidth, BIRD_SPRITE.frameHeight);
   }
 
   pop();
@@ -1399,6 +1520,13 @@ function drawMinimap() {
 // R restarts. B skips to boss fight.
 // ------------------------------------------------------------
 function keyPressed() {
+  // Human jump — single press with cooldown
+  let inStart = player.x < TILE_SIZE * startArea.mapWidth;
+  if (keyCode === 32 && inStart && player.jumpCooldown <= 0) {
+    player.vy = -13;
+    player.jumpCooldown = 30;
+  }
+
   // B — skip to boss fight for testing
   if (key === "b" || key === "B") {
     player.y = BOSS_ZONE_Y - 10;
