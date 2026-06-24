@@ -146,6 +146,7 @@ let obstacles = [];
 let startArea;
 let birdArea;
 let fishArea;
+let endArea;
 let tiles = [];
 
 let waterTiles = [];
@@ -364,6 +365,11 @@ function draw() {
     console.log("fish area drawn");
   }
 
+  if (player.x > birdArea.mapWidth * TILE_SIZE) {
+    drawTiles(endArea);
+    print("end area drawn");
+  }
+
   if (gameState === STATE_PLAY) {
     updateMoveSpeed();
     handleInput();
@@ -576,7 +582,7 @@ function buildTileCollision() {
   processJsonLayers(birdArea, checkpointTiles, coinTiles, startArea.mapWidth * TILE_SIZE, 0);
 
   // Process layers from fishArea with world offsets
-  const fishAreaOffsetX = TILE_SIZE * (birdArea.mapWidth - 33);
+  const fishAreaOffsetX = TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth - 33);
   const fishAreaOffsetY = TILE_SIZE * birdArea.mapHeight;
   processJsonLayers(
     fishArea,
@@ -585,6 +591,8 @@ function buildTileCollision() {
     fishAreaOffsetX,
     fishAreaOffsetY,
   );
+
+  processJsonLayers(endArea, checkCheckpoints, coinTiles, TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth, TILE_SIZE * birdArea.mapHeight - endArea.mapHeight));
 
   function playerInWater() {
     for (const t of waterTiles) {
@@ -978,8 +986,13 @@ for (let l = layers.length - 1; l > -1; l--) {
       mapYOffset = 0;
     }
     if (jsonFile == fishArea) {
-      mapXOffset = TILE_SIZE * (birdArea.mapWidth - 33);
+      mapXOffset = TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth - 33);
       mapYOffset = TILE_SIZE * birdArea.mapHeight;
+    }
+
+    if (jsonFile == endArea) {
+      mapXOffset = TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth);
+      mapYOffset = TILE_SIZE * birdArea.mapHeight - endArea.mapHeight;
     }
 
     let x = t.x * TILE_SIZE + mapXOffset;
@@ -992,7 +1005,7 @@ for (let l = layers.length - 1; l > -1; l--) {
 
 // Draw background image for fish area after water but before other tiles
 if (jsonFile === fishArea && fishareaBG) {
-  const fishAreaOffsetX = TILE_SIZE * (birdArea.mapWidth - 33);
+  const fishAreaOffsetX = TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth - 33);
   const fishAreaOffsetY = TILE_SIZE * birdArea.mapHeight;
   image(fishareaBG, fishAreaOffsetX, fishAreaOffsetY, 1900, 800);
 }
@@ -1055,8 +1068,13 @@ if (jsonFile === fishArea && fishareaBG) {
         mapYOffset = 0;
       }
       if (jsonFile === fishArea) {
-        mapXOffset = TILE_SIZE * (birdArea.mapWidth - 33);
+        mapXOffset = TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth - 33);
         mapYOffset = TILE_SIZE * birdArea.mapHeight;
+      }
+
+      if (jsonFile === endArea) {
+        mapXOffset = TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth);
+        mapYOffset = TILE_SIZE * (TILE_SIZE * birdArea.mapHeight - endArea.mapHeight);
       }
 
       let x = t.x * TILE_SIZE + mapXOffset;
