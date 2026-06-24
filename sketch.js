@@ -92,7 +92,7 @@ const HUMAN_SPEED = 10;
 const TILE_SIZE = 50;
 
 let player = {
-  x: 2 * TILE_SIZE,
+  x: 5 * TILE_SIZE,
   y: 2 * TILE_SIZE,
   r: 22,
 
