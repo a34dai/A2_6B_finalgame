@@ -1,17 +1,4 @@
 // ============================================================
-// The player moves freely around a world larger than the canvas.
-// A smooth-follow camera keeps the player centred.
-// Enemy waves are loaded from JSON and chase the player.
-// A minimap in the bottom-right corner shows the player and
-// enemy positions at all times.
-// A giant orange blob boss spawns when the player enters the
-// boss zone at the top of the world. Defeat it to win.
-// Press B to skip straight to the boss for testing.
-//
-// Files:
-//   sketch.js           — all game logic
-//   data/enemies.json   — wave trigger positions, enemy data, boss data
-//   data/obstacles.json — obstacle positions in world coordinates
 // ============================================================
 
 // ------------------------------------------------------------
@@ -23,12 +10,12 @@
 let camX = 0;
 let camY = 0;
 const CAM_SMOOTHING = 0.5;
-let camZoom = 0.7;
+let camZoom = .7;
 
 // ------------------------------------------------------------
 // PLAYER CONFIGURATION
 // ------------------------------------------------------------
-const PLAYER_SPEED = 15;
+const PLAYER_SPEED = 18; // bird
 let moveSpeed = PLAYER_SPEED;
 const INVINCIBLE_FRAMES = 90; // ADDED — was referenced but never defined
 
@@ -82,19 +69,38 @@ const BIRD_SPRITE = {
   },
 };
 
-const GRAVITY = 0.4; // 4.0  Calibrated downward pull
-const GRAVITY_AFTER_CHECKPOINT = GRAVITY * 0.6; // 60% of normal gravity after first checkpoint
-const FLAP_FORCE = -4; // -24 // Gives the exact velocity curve to hit 3 blocks high
+const GRAVITY = 0.5; // 4.0  bird gravity? Calibrated downward pull
+const GRAVITY_AFTER_CHECKPOINT = GRAVITY * 1; // 60% of normal gravity after first checkpoint
+const FLAP_FORCE = -8; // -24 // Gives the exact velocity curve to hit 3 blocks high
 const TERMINAL_VELOCITY = 20;
 const HUMAN_GRAVITY = 0.9;
 const HUMAN_SPEED = 10;
 
+const FISH_SWIM_HORIZONTAL = 0.6;   // left/right force
+const FISH_SWIM_UP = 0.4;           // upward force — lower = harder to swim up
+const FISH_SWIM_DOWN = 0.9;         // downward force — faster to sink than rise
+
+const FISH_STAMINA_MAX = 100;
+const FISH_STAMINA_REGEN = 0.4;      // stamina recovered per frame when not flapping
+const FISH_STAMINA_COST = 10;        // stamina used per flap tap
+const FISH_FLAP_FORCE = 2;         // upward burst per flap
+const FISH_FLAP_DECAY = 0.3;         // how quickly flap burst fades (higher = shorter burst)
+const FISH_SINK_FORCE = 0.15;        // passive downward pull
+const FISH_WATER_DRAG = 0.88;
+
 const TILE_SIZE = 50;
 
 let player = {
-  x: 5 * TILE_SIZE,
-  y: 2 * TILE_SIZE,
-  r: 22,
+  x: 400 * TILE_SIZE, //405
+  y: 15 * TILE_SIZE,
+  vy: 1,
+  vx: 0,
+  r: 15, //22
+
+  //fish stuff
+  stamina: 100,      // ← add this
+  flapVelocity: 0,   // ← add this
+  flapQueued: false, // ← add this too
 
   // Animation state variables
   currentFrame: 0,
@@ -111,7 +117,7 @@ let player = {
   bounceVY: 0,
   isGrounded: false,
   jumpCooldown: 0,
-};
+}; 
 
 // ------------------------------------------------------------
 // WHIRLPOOL SPRITE CONFIGURATION
@@ -125,23 +131,6 @@ const WHIRLPOOL_SPRITE = {
 let whirlpoolImg;     // Holds the portal(db).png texture asset
 let whirlpoolFrame = 0;
 let whirlpoolTimer = 0;
-
-
-// ------------------------------------------------------------
-// BULLETS and ENEMIES
-// Positions are in world coordinates.
-// ------------------------------------------------------------
-let bullets = [];
-let enemies = [];
-
-// ------------------------------------------------------------
-// OBSTACLES
-// Loaded from data/obstacles.json in preload().
-// Positioned in world coordinates — drawn and collided in
-// world space. Player takes damage and bounces on contact.
-// ------------------------------------------------------------
-let obstacleData;
-let obstacles = [];
 
 let startArea;
 let birdArea;
@@ -162,7 +151,6 @@ let spike4Img;
 let fishareaBG;
 let fishareaOverlay;
 let cavebg;
-
 
 let fishSheet; //fish sprite sheet
 let birdSheet; //bird sprite sheet
@@ -194,60 +182,20 @@ let whirlpoolTiles = []; // [{x,y,w,h}]
 let allCoinsCollected = false;
 
 // ------------------------------------------------------------
-// WAVE SYSTEM
-// Each wave has a triggerY — spawns when player.y < triggerY.
-// nextWave tracks which wave to check next.
-// ------------------------------------------------------------
-let enemyData;
-let nextWave = 0;
-
-// ------------------------------------------------------------
-// BOSS
-// Spawns when player enters the boss zone (player.y < bossZoneY).
-// ------------------------------------------------------------
-let boss = null;
-let bossData = null;
-const BOSS_ZONE_Y = 300; // world Y — enter this zone to trigger boss
-
-// ------------------------------------------------------------
-// MINIMAP
-// Drawn in screen coordinates after pop().
-// Shows a scaled-down version of the world with dots for
-// the player (teal) and enemies (orange).
-// ------------------------------------------------------------
-const MAP_W = 120; // minimap width in pixels
-const MAP_H = 120; // minimap height in pixels
-const MAP_X = 16; // screen position — bottom left
-const MAP_Y_OFFSET = 16; // offset from bottom of screen
-
-// ------------------------------------------------------------
 // GAME STATE
 // ------------------------------------------------------------
 let score = 0;
 
 const STATE_PLAY = "play";
-const STATE_BOSS = "boss";
 const STATE_WIN = "win";
 const STATE_OVER = "over";
 let gameState = STATE_PLAY;
 
-// ------------------------------------------------------------
-// SOUNDS — uncomment and fill in paths to add audio
-// ------------------------------------------------------------
-// let shootSound;
-// let hitSound;
-// let playerHitSound;
-// let bossHitSound;
-// let bossMusic;
-// let winSound;
-// let music;
 
 // ============================================================
 // preload()
 // ============================================================
 function preload() {
-  enemyData = loadJSON("data/enemies.json");
-  obstacleData = loadJSON("data/obstacles.json");
 
   startArea = loadJSON("data/startarea.json");
   birdArea = loadJSON("data/birdarea.json");
@@ -269,14 +217,6 @@ function preload() {
   birdSheet = loadImage("assets/bird.png");
   humanSheet = loadImage("assets/human.png");
 
-  // Uncomment to load sounds:
-  // shootSound     = loadSound("assets/sounds/shoot.wav");
-  // hitSound       = loadSound("assets/sounds/hit.wav");
-  // playerHitSound = loadSound("assets/sounds/playerhit.wav");
-  // bossHitSound   = loadSound("assets/sounds/bosshit.wav");
-  // bossMusic      = loadSound("assets/sounds/bossmusic.mp3");
-  // winSound       = loadSound("assets/sounds/win.wav");
-  // music          = loadSound("assets/sounds/music.mp3");
 }
 
 // ============================================================
@@ -291,9 +231,7 @@ function setup() {
       fishArea.mapWidth +
       endArea.mapWidth); // total world width in pixels
   WORLD_H = TILE_SIZE * (birdArea.mapHeight + fishArea.mapHeight); // total world height in pixels
-  bossData = enemyData.boss;
   console.log("birdArea=", birdArea);
-  console.log("obstacleData=", obstacleData);
 
   FISH_SPRITE.frameWidth = fishSheet.width / 2;
   FISH_SPRITE.frameHeight = fishSheet.height / 2;
@@ -301,11 +239,6 @@ function setup() {
   HUMAN_SPRITE.frameWidth  = humanSheet.width  / HUMAN_SPRITE.numFrames;
   HUMAN_SPRITE.frameHeight = humanSheet.height / 2;
 
-  // Build obstacle objects from JSON
-  for (let i = 0; i < obstacleData.obstacles.length; i++) {
-    let o = obstacleData.obstacles[i];
-    obstacles.push({ x: o.x, y: o.y, size: o.size });
-  }
 
   const tilesArray = birdArea.layers?.[0]?.tiles || [];
   for (let i = 0; i < tilesArray.length; i++) {
@@ -359,7 +292,7 @@ function draw() {
   //}
 
   // if player is near y lvel of fish area
-  if (player.y > TILE_SIZE * (birdArea.mapHeight - birdArea.mapHeight / 7)) {
+  if (player.y > TILE_SIZE * (birdArea.mapHeight - fishArea.mapHeight)) {
     // add end of fish area boundary later
     drawTiles(fishArea); // fish area
     console.log("fish area drawn");
@@ -373,8 +306,6 @@ function draw() {
   if (gameState === STATE_PLAY) {
     updateMoveSpeed();
     handleInput();
-    animateCharacter();
-    applyBounce();
 
     whirlpoolTimer++;
     if (whirlpoolTimer >= WHIRLPOOL_SPRITE.animSpeed) {
@@ -388,23 +319,18 @@ function draw() {
     checkCollectables();
     checkHazardCollisions();
     checkCheckpoints();
-    checkObstaclePlayerCollision(); // was defined but never called
-
-    drawObstacles();
 
     drawPlayer();
 
     // ADDED: draw fish area overlay on top of everything (world coordinates)
     if (fishareaOverlay) {
-      const fishAreaOffsetX = TILE_SIZE * (birdArea.mapWidth - 33);
+      const fishAreaOffsetX = TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth - 33);
       const fishAreaOffsetY = TILE_SIZE * birdArea.mapHeight;
       image(fishareaOverlay, fishAreaOffsetX, fishAreaOffsetY, 1900, 800);
     }
   }
 
   pop(); // restore screen coordinates
-
-  drawMinimap();
 }
 
 // ------------------------------------------------------------
@@ -441,7 +367,7 @@ function animateCharacter() {
 
   } else {
     // Bird animation (unchanged)
-    let isFlapping      = keyIsDown(32);
+    let isFlapping      = keyIsDown(87);
     let currentAnimMode = isFlapping ? "flying" : "running";
     let maxFrames       = BIRD_SPRITE.maxFrames[currentAnimMode];
     if (isFlapping || player.isMoving) {
@@ -479,7 +405,6 @@ function updateCamera() {
 // ------------------------------------------------------------
 // ADDED — updateInvincibility()
 // Counts down the player's invincibility window after taking a
-// hit (from spikes or obstacles) and clears the flag at zero.
 // If you already decrement invincibleTimer somewhere else in your
 // full project, remove this function to avoid double-counting.
 // ------------------------------------------------------------
@@ -592,7 +517,7 @@ function buildTileCollision() {
     fishAreaOffsetY,
   );
 
-  processJsonLayers(endArea, checkCheckpoints, coinTiles, TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth, TILE_SIZE * birdArea.mapHeight - endArea.mapHeight));
+  processJsonLayers(endArea, checkpointTiles, coinTiles, TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth), TILE_SIZE * (birdArea.mapHeight - endArea.mapHeight));
 
   function playerInWater() {
     for (const t of waterTiles) {
@@ -769,41 +694,15 @@ function checkHazardCollisions() {
 function checkCheckpoints() {
   for (let i = activeCheckpointIndex + 1; i < checkpoints.length; i++) {
     const cp = checkpoints[i];
-
-    const overlapsX =
-      player.x + player.r > cp.x && player.x - player.r < cp.x + cp.w;
-    const overlapsY =
-      player.y + player.r > cp.y && player.y - player.r < cp.y + cp.h;
-
-    if (overlapsX && overlapsY) {
-      console.log("Checkpoint reached:", i, cp);
+    const overlapsX = player.x + player.r > cp.x && player.x - player.r < cp.x + cp.w;
+    if (overlapsX) {
       activeCheckpointIndex = i;
       lastCheckpoint = { x: cp.spawnX, y: cp.spawnY };
-      // Hook a sound/flash/UI message here if you'd like to
-      // celebrate reaching a checkpoint, e.g.:
-      // checkpointSound.play();
+      console.log("Checkpoint activated:", i, lastCheckpoint);
     }
   }
 }
 
-// ------------------------------------------------------------
-// killPlayer()
-// Shared death handler for spikes (and reusable for enemies/boss
-// attacks later). Loses a life, then either ends the game or
-// respawns at the last checkpoint.
-// ------------------------------------------------------------
-function killPlayer() {
-  player.health--;
-  // playerHitSound.play();
-
-  if (player.health <= 0) {
-    gameState = STATE_OVER;
-    // music.stop();
-    return;
-  }
-
-  respawnPlayer();
-}
 
 // ------------------------------------------------------------
 // respawnPlayer()
@@ -834,20 +733,19 @@ function respawnPlayer() {
 // Returns the nearest spawn point among checkpoints the player
 // has already reached, or null if none have been reached.
 // ------------------------------------------------------------
-function findClosestPassedCheckpoint(px, py) {
-  if (activeCheckpointIndex < 0) return null;
 
+ function findClosestPassedCheckpoint(px, py) {
   let best = null;
   let minD = Infinity;
-  for (let i = 0; i <= activeCheckpointIndex && i < checkpoints.length; i++) {
-    const cp = checkpoints[i];
+
+  for (const cp of checkpoints) {
+    const centerX = cp.x + cp.w / 2;
+    if (centerX > px) continue; // only checkpoints already passed
+
     const d = dist(px, py, cp.spawnX, cp.spawnY);
     if (d < minD) {
       minD = d;
-      best = {
-        x: cp.spawnX,
-        y: cp.spawnY,
-      };
+      best = { x: cp.spawnX, y: cp.spawnY };
     }
   }
 
@@ -868,6 +766,7 @@ function respawnFromHazard() {
 
   player.x = spawn.x;
   player.y = spawn.y;
+  player.vy = 0;
   player.bounceVX = 0;
   player.bounceVY = 0;
   // no invincibility here — user requested no glitching/flicker
@@ -992,7 +891,7 @@ for (let l = layers.length - 1; l > -1; l--) {
 
     if (jsonFile == endArea) {
       mapXOffset = TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth);
-      mapYOffset = TILE_SIZE * birdArea.mapHeight - endArea.mapHeight;
+      mapYOffset = TILE_SIZE * (birdArea.mapHeight - endArea.mapHeight);
     }
 
     let x = t.x * TILE_SIZE + mapXOffset;
@@ -1074,7 +973,7 @@ if (jsonFile === fishArea && fishareaBG) {
 
       if (jsonFile === endArea) {
         mapXOffset = TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth);
-        mapYOffset = TILE_SIZE * (TILE_SIZE * birdArea.mapHeight - endArea.mapHeight);
+        mapYOffset = TILE_SIZE * (birdArea.mapHeight - endArea.mapHeight);
       }
 
       let x = t.x * TILE_SIZE + mapXOffset;
@@ -1137,14 +1036,14 @@ if (jsonFile === fishArea && fishareaBG) {
           fill(tileColor(layer.name, t.id));
           rect(x, y, TILE_SIZE, TILE_SIZE);
         }
-      } else if ((jsonFile === birdArea || jsonFile === startArea) && layer.name === "rock") {
+      } else if ((jsonFile === birdArea || jsonFile === startArea || jsonFile === endArea) && layer.name === "rock") {
         if (rockImg) {
           image(rockImg, x, y, TILE_SIZE, TILE_SIZE);
         } else {
           fill(tileColor(layer.name, t.id));
           rect(x, y, TILE_SIZE, TILE_SIZE);
         }
-      } else if ((jsonFile === birdArea || jsonFile === startArea) && layer.name === "background sky") {
+      } else if ((jsonFile === birdArea || jsonFile === startArea || jsonFile === endArea) && layer.name === "background sky") {
         fill(tileColor(layer.name, t.id));
         rect(x, y, TILE_SIZE, TILE_SIZE);
       } else if (jsonFile === birdArea && layer.name === "spikes") {
@@ -1199,6 +1098,9 @@ if (jsonFile === fishArea && fishareaBG) {
           fill(tileColor(layer.name, t.id));
           rect(x, y, TILE_SIZE, TILE_SIZE);
         }
+      } else if (layer.name === "door") {
+        fill(0)
+         rect(x, y, TILE_SIZE, TILE_SIZE);
       } else {
         fill(tileColor(layer.name, t.id));
         rect(x, y, TILE_SIZE, TILE_SIZE);
@@ -1265,63 +1167,6 @@ function tileColor(layerName, id) {
 }
 
 // ------------------------------------------------------------
-// drawObstacles()
-// Drawn in world coordinates inside push/pop.
-// Only draws obstacles near the camera for performance.
-// ------------------------------------------------------------
-function drawObstacles() {
-  for (let i = 0; i < obstacles.length; i++) {
-    let o = obstacles[i];
-
-    // Skip if off screen
-    if (
-      o.x + o.size < camX ||
-      o.x - o.size > camX + width ||
-      o.y + o.size < camY ||
-      o.y - o.size > camY + height
-    )
-      continue;
-
-    let x = o.x - o.size / 2;
-    let y = o.y - o.size / 2;
-    let s = o.size;
-
-    push();
-
-    pop();
-  }
-}
-
-// ------------------------------------------------------------
-// checkObstaclePlayerCollision()
-// Circle-rectangle overlap test — same as Example 1.
-// Obstacle contact is no longer harmful; obstacles are treated
-// like a reward/interaction point instead of a death hazard.
-// ------------------------------------------------------------
-function checkObstaclePlayerCollision() {
-  for (let i = 0; i < obstacles.length; i++) {
-    let o = obstacles[i];
-
-    let closestX = constrain(player.x, o.x - o.size / 2, o.x + o.size / 2);
-    let closestY = constrain(player.y, o.y - o.size / 2, o.y + o.size / 2);
-    let d = dist(player.x, player.y, closestX, closestY);
-
-    if (d < player.r) {
-      // Keep a small bounce off obstacles for feedback,
-      // but do not reduce health or end the game.
-      let dx = player.x - o.x;
-      let dy = player.y - o.y;
-      let len = dist(0, 0, dx, dy);
-      if (len > 0) {
-        player.bounceVX = (dx / len) * 8;
-        player.bounceVY = (dy / len) * 8;
-      }
-      break;
-    }
-  }
-}
-
-// ------------------------------------------------------------
 // applyBounce()
 // Applies and decays bounce velocity each frame.
 // ------------------------------------------------------------
@@ -1356,7 +1201,7 @@ function drawBackground() {
 // handleInput()
 // WASD moves the player in world coordinates.
 // Constrained to world boundaries.
-// Spacebar fires in the current facing direction.
+// W key flaps/jumps when not in the start area.
 // ------------------------------------------------------------
 // ------------------------------------------------------------
 // handleInput() — Updates player position and tracking direction
@@ -1380,11 +1225,45 @@ function handleInput() {
 
   // --- Vertical Movement (Context Dependent) ---
   if (inSea) {
-    player.vy = 0;
-    if (keyIsDown(87)) { player.y -= moveSpeed; player.isMoving = true; }
-    if (keyIsDown(83)) { player.y += moveSpeed; player.isMoving = true; }
+  // --- Passive sink ---
+  player.vy += FISH_SINK_FORCE;
 
+  // --- Stamina regen when not pressing up ---
+  if (!keyIsDown(87)) {
+    player.stamina = min(player.stamina + FISH_STAMINA_REGEN, FISH_STAMINA_MAX);
+  }
+
+  // --- Flap: only triggers on fresh keypress, not held ---
+  // (handled in keyPressed, sets a flapQueued flag)
+  if (player.flapQueued && player.stamina >= FISH_STAMINA_COST) {
+    player.flapVelocity = -FISH_FLAP_FORCE;     // burst upward
+    player.stamina -= FISH_STAMINA_COST;
+    player.flapQueued = false;
+    player.isMoving = true;
   } else {
+    player.flapQueued = false;   // cancel queued flap if no stamina
+  }
+
+  // --- Decay the flap burst so each tap only gives a short push ---
+  player.flapVelocity *= (1 - FISH_FLAP_DECAY);
+
+  // --- Combine into vy ---
+  player.vy += player.flapVelocity;
+
+
+  // --- Down is easy and holdable ---
+  if (keyIsDown(83)) { player.vy += FISH_SWIM_DOWN; player.isMoving = true; }
+
+  player.vy *= FISH_WATER_DRAG;
+  player.vx *= FISH_WATER_DRAG;
+
+  player.vy = constrain(player.vy, -8, 6);   // asymmetric: harder cap going up
+  player.vx = constrain(player.vx, -moveSpeed, moveSpeed);
+
+  player.x += player.vx;
+  player.y += player.vy;
+} else {
+  player.vx = 0;
     const currentGravity = activeCheckpointIndex >= 0 ? GRAVITY_AFTER_CHECKPOINT : GRAVITY;
 
     if (inStart) {
@@ -1397,7 +1276,7 @@ function handleInput() {
     player.y += player.vy;
 
     if (!inStart) {
-      if (keyIsDown(32)) {
+      if (keyIsDown(87)) {
         player.vy = FLAP_FORCE;
       }
     }
@@ -1410,26 +1289,6 @@ function handleInput() {
   player.y = constrain(player.y, player.r, WORLD_H - player.r);
 }
 
-// ------------------------------------------------------------
-// updateBullets()
-// Bullets travel in world coordinates.
-// Removed when they leave the world bounds.
-// ------------------------------------------------------------
-function updateBullets() {
-  for (let i = bullets.length - 1; i >= 0; i--) {
-    bullets[i].x += bullets[i].vx;
-    bullets[i].y += bullets[i].vy;
-
-    if (
-      bullets[i].x < 0 ||
-      bullets[i].x > WORLD_W ||
-      bullets[i].y < 0 ||
-      bullets[i].y > WORLD_H
-    ) {
-      bullets.splice(i, 1);
-    }
-  }
-}
 
 // ------------------------------------------------------------
 // drawPlayer() — Slices active state asset based on environment
@@ -1449,8 +1308,17 @@ function drawPlayer() {
     let sy  = row * HUMAN_SPRITE.frameHeight;
     let dw  = HUMAN_SPRITE.frameWidth  * HUMAN_SPRITE.scale;
     let dh  = HUMAN_SPRITE.frameHeight * HUMAN_SPRITE.scale;
-    image(humanSheet, player.x, player.y, dw, dh,
-          sx, sy, HUMAN_SPRITE.frameWidth, HUMAN_SPRITE.frameHeight);
+    image(
+      humanSheet,
+      player.x,
+      player.y - TILE_SIZE * 0.5,
+      dw,
+      dh,
+      sx,
+      sy,
+      HUMAN_SPRITE.frameWidth,
+      HUMAN_SPRITE.frameHeight
+    );
 
   } else if (inSea) {
     // --- Render Fish --- (existing code unchanged)
@@ -1461,10 +1329,26 @@ function drawPlayer() {
     let dh  = FISH_SPRITE.frameHeight * FISH_SPRITE.scale;
     image(fishSheet, player.x, player.y, dw, dh, sx, sy,
           FISH_SPRITE.frameWidth, FISH_SPRITE.frameHeight);
+          // Stamina bar — drawn in world coords, floats above player
+
+  // Vertical stamina bar — drawn to the right of the fish
+const barW = 5;
+const barH = 40;
+const bx = player.x + player.r + 6;   // right side of fish
+const by = player.y - barH / 2;        // vertically centred on fish
+const fill_h = map(player.stamina, 0, FISH_STAMINA_MAX, 0, barH);
+
+noStroke();
+fill(0, 0, 0, 100);
+rect(bx, by, barW, barH, 2);                          // background track
+fill(map(player.stamina, 0, FISH_STAMINA_MAX, 255, 80), 
+     map(player.stamina, 0, FISH_STAMINA_MAX, 60, 200), 120);
+rect(bx, by + (barH - fill_h), barW, fill_h, 2);     // fills from bottom up
+
 
   } else {
     // --- Render Bird --- (existing code unchanged)
-    let isFlapping  = keyIsDown(32);
+    let isFlapping  = keyIsDown(87);
     let animMode    = isFlapping ? "flying" : "running";
     let row         = BIRD_SPRITE.rows[animMode];
     let safeFrame   = player.currentFrame % BIRD_SPRITE.maxFrames[animMode];
@@ -1485,11 +1369,7 @@ function drawPlayer() {
 // ------------------------------------------------------------
 // drawMinimap()
 // Drawn in screen coordinates after pop().
-// Shows a scaled-down view of the world with:
-//   Teal dot  — player position
-//   Orange dots — enemy positions
-//   Red dot   — boss position (when active)
-//   Orange zone — boss zone indicator at top of minimap
+// Shows a scaled-down view of the world 
 // ------------------------------------------------------------
 function drawMinimap() {
   let mapX = MAP_X;
@@ -1540,16 +1420,16 @@ function drawMinimap() {
 function keyPressed() {
   // Human jump — single press with cooldown
   let inStart = player.x < TILE_SIZE * startArea.mapWidth;
-  if (keyCode === 32 && inStart && player.jumpCooldown <= 0) {
+  if ((key === 'w' || key === 'W' || keyCode === 87) && inStart && player.jumpCooldown <= 0) {
     player.vy = -13;
     player.jumpCooldown = 30;
   }
 
-  // B — skip to boss fight for testing
-  if (key === "b" || key === "B") {
-    player.y = BOSS_ZONE_Y - 10;
-    if (!boss) spawnBoss();
+
+  // Fish flap — tap only, not holdable
+  if (keyCode === 87 && playerInWater()) {
+    player.flapQueued = true;
   }
 
   // music.loop();
-}
+} 
