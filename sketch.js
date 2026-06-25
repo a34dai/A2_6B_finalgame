@@ -1329,12 +1329,11 @@ function drawPlayer() {
     let dh  = FISH_SPRITE.frameHeight * FISH_SPRITE.scale;
     image(fishSheet, player.x, player.y, dw, dh, sx, sy,
           FISH_SPRITE.frameWidth, FISH_SPRITE.frameHeight);
-          // Stamina bar — drawn in world coords, floats above player
 
   // Vertical stamina bar — drawn to the right of the fish
 const barW = 5;
 const barH = 40;
-const bx = player.x + player.r + 6;   // right side of fish
+const bx = player.x + player.r + 40;   // right side of fish
 const by = player.y - barH / 2;        // vertically centred on fish
 const fill_h = map(player.stamina, 0, FISH_STAMINA_MAX, 0, barH);
 
