@@ -54,7 +54,7 @@
       "collider": false
     },
     {
-      "name": "rock",
+      "name": "sand",
       "tiles": [
         { "id": "0", "x": 0, "y": 15 },
         { "id": "0", "x": 1, "y": 15 },
@@ -114,7 +114,7 @@
       "collider": false
     },
     {
-      "name": "algae",
+      "name": "rock",
       "tiles": [
         { "id": "3", "x": 15, "y": 5 },
         { "id": "3", "x": 16, "y": 5 },

@@ -91,7 +91,7 @@
       "collider": false 
     },
     {
-      "name": "rock", 
+      "name": "rock",
       "tiles": [
         { "id": "3", "x": 0, "y": 17 },
         { "id": "3", "x": 1, "y": 17 },
@@ -604,7 +604,7 @@
       "collider": false
     },
     {
-      "name": "background",
+      "name": "background sky",
       "tiles": [
         { "id": "5", "x": 0, "y": 7 },
         { "id": "5", "x": 1, "y": 7 },

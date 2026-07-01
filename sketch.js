@@ -91,7 +91,7 @@ const FISH_WATER_DRAG = 0.88;
 const TILE_SIZE = 50;
 
 let player = {
-  x: 400 * TILE_SIZE, //405
+  x: 3 * TILE_SIZE, //405
   y: 15 * TILE_SIZE,
   vy: 1,
   vx: 0,
@@ -161,7 +161,7 @@ let birdSheet; //bird sprite sheet
 // the same id number means different things on different layers.
 // Add/rename layer names here to match your map.json exactly.
 // ------------------------------------------------------------
-const SOLID_LAYERS = ["rock", "seaweed"]; // blocks movement CHANGE SEAWEED PROPERTES
+const SOLID_LAYERS = ["rock", "seaweed", "sand", "algae", "bark"]; // blocks movement CHANGE SEAWEED PROPERTES
 const HAZARD_LAYERS = ["spikes"]; // kills on contact
 const CHECKPOINT_LAYER = "checkpoint"; // respawn points
 const COLLECTABLE_LAYER = "coins";
@@ -1119,6 +1119,8 @@ if (jsonFile === fishArea && fishareaBG) {
 // ------------------------------------------------------------
 function tileColor(layerName, id) {
   switch (layerName) {
+     case "bark":
+      return color("brown"); // bark
     case "spikes":
       return color(200, 40, 40); // red — danger
     case "checkpoint":
@@ -1131,6 +1133,8 @@ function tileColor(layerName, id) {
       return color(255, 215, 0); // gold coin
     case "whirlpool":
       return color(30, 100, 200); // blue whirlpool
+    case "sand":
+      return color("yellow"); // yellow — background
     case "water":
       return color(20, 60, 160, 160); // blue — background
     case "background sky":
