@@ -190,7 +190,7 @@ let score = 0;
 
 const STATE_PLAY = "play";
 const STATE_WIN = "win";
-const STATE_OVER = "over";
+const STATE_OVER = "over"; 
 let gameState = STATE_PLAY;
 
 // ============================================================
@@ -225,7 +225,7 @@ function preload() {
 // ============================================================
 function setup() {
   createCanvas(800, 450);
-  console.log("watersurface loaded:", waterSurfaceImg.width, waterSurfaceImg.height);
+  console.log("watersurfaccce loaded:", waterSurfaceImg.width, waterSurfaceImg.height);
   WORLD_W =
     TILE_SIZE *
     (startArea.mapWidth +
