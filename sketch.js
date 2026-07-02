@@ -10,7 +10,7 @@
 let camX = 0;
 let camY = 0;
 const CAM_SMOOTHING = 0.5;
-let camZoom = 0.2;
+let camZoom = 0.7;
 
 // ------------------------------------------------------------
 // PLAYER CONFIGURATION
@@ -225,6 +225,7 @@ function preload() {
 // ============================================================
 function setup() {
   createCanvas(800, 450);
+  console.log("watersurface loaded:", waterSurfaceImg.width, waterSurfaceImg.height);
   WORLD_W =
     TILE_SIZE *
     (startArea.mapWidth +
@@ -295,12 +296,12 @@ function draw() {
   if (player.y > TILE_SIZE * (birdArea.mapHeight - fishArea.mapHeight)) {
     // add end of fish area boundary later
     drawTiles(fishArea); // fish area
-    console.log("fish area drawn");
+    //console.log("fish area drawn");
   }
 
   if (player.x > birdArea.mapWidth * TILE_SIZE) {
     drawTiles(endArea);
-    print("end area drawn");
+    //print("end area drawn");
   }
 
   if (gameState === STATE_PLAY) {
@@ -1176,6 +1177,8 @@ function tileColor(layerName, id) {
       return color("yellow"); // yellow — background
     case "water":
       return color(20, 60, 160, 160); // blue — background
+      case "water surface":
+  return color(50, 130, 200, 180); // translucent blue, or whatever fits
   }
 
   // fallback: old id-based colours, for any layer name not listed above
