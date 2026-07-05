@@ -91,8 +91,8 @@ const FISH_WATER_DRAG = 0.88;
 const TILE_SIZE = 50;
 
 let player = {
-  x: 300 * TILE_SIZE, //405
-  y: 2 * TILE_SIZE,
+  x: 100 * TILE_SIZE, //405
+  y: 10 * TILE_SIZE,
   vy: 1,
   vx: 0,
   r: 15, //22
@@ -118,6 +118,11 @@ let player = {
   isGrounded: false,
   jumpCooldown: 0,
 };
+
+const WIND_FORCE = -1.5;      // stronger upward push = more negative
+const WIND_MAX_UP = -12;      // caps upward speed
+
+let windZones = [];
 
 // ------------------------------------------------------------
 // WHIRLPOOL SPRITE CONFIGURATION
@@ -256,6 +261,13 @@ function setup() {
   // and group checkpoint tiles into discrete zones.
   buildTileCollision();
 
+windZones.push({
+  x: TILE_SIZE * startArea.mapWidth,
+  y: 0,
+  w: 6 * TILE_SIZE,
+  h: birdArea.mapHeight * TILE_SIZE
+});
+
   // ADDED — remember the player's starting point as the fallback
   // respawn location for before any checkpoint has been reached.
   playerStart = { x: player.x, y: player.y };
@@ -315,13 +327,42 @@ function shouldDrawArea(jsonFile) {
   const bounds = getAreaWorldBounds(jsonFile);
   if (!bounds) return false;
 
-  const margin = 2 * TILE_SIZE;
+  const visibleW = width / camZoom;   // ~1143px at camZoom 0.7
+  const visibleH = height / camZoom;  // ~643px at camZoom 0.7
+  const margin = 2 * TILE_SIZE;       // small buffer on top of the real viewport
+
+  const viewLeft = camX - margin;
+  const viewRight = camX + visibleW + margin;
+  const viewTop = camY - margin;
+  const viewBottom = camY + visibleH + margin;
+
   return (
-    player.x + player.r + margin > bounds.x &&
-    player.x - player.r - margin < bounds.x + bounds.w &&
-    player.y + player.r + margin > bounds.y &&
-    player.y - player.r - margin < bounds.y + bounds.h
+    viewRight > bounds.x &&
+    viewLeft < bounds.x + bounds.w &&
+    viewBottom > bounds.y &&
+    viewTop < bounds.y + bounds.h
   );
+}
+
+function drawInstructions() {
+  let inStart = player.x < TILE_SIZE * startArea.mapWidth;
+  if (!inStart) return;
+
+  push();
+  noStroke();
+  fill(0, 0, 0, 140);
+  rect(14, height - 110, 140, 95, 8);
+
+  fill(255);
+  textSize(12);
+  textFont("monospace");
+  textAlign(LEFT, TOP);
+  text("CONTROLS:", 24, height - 100);
+  fill(200);
+  text("A / D / S — move", 24, height - 82);
+  text("W  — jump", 24, height - 66);
+  text("", 24, height - 50);
+  pop();
 }
 
 function draw() {
@@ -359,6 +400,7 @@ function draw() {
   if (gameState === STATE_PLAY) {
     updateMoveSpeed();
     handleInput();
+    checkWindZones();
 
     whirlpoolTimer++;
     if (whirlpoolTimer >= WHIRLPOOL_SPRITE.animSpeed) {
@@ -386,6 +428,7 @@ function draw() {
 
   pop(); // restore screen coordinates
   drawKeyHUD();
+  drawInstructions(); 
 }
 
 function drawKeyHUD() {
@@ -410,6 +453,31 @@ function drawKeyHUD() {
   text(`${keyCollected} / ${keyTotal}`, x + 32, y + boxH / 2 + 1);
   pop();
 }
+
+function checkWindZones() {
+  for (const z of windZones) {
+    const inside =
+      player.x + player.r > z.x &&
+      player.x - player.r < z.x + z.w &&
+      player.y + player.r > z.y &&
+      player.y - player.r < z.y + z.h;
+
+    if (inside) {
+      const ceilingBuffer = 4 * TILE_SIZE; // floats 4 blocks below ceiling
+      const targetY = z.y + ceilingBuffer;
+
+      if (player.y > targetY) {
+        player.vy += WIND_FORCE;
+        player.vy = max(player.vy, WIND_MAX_UP);
+      } else {
+        player.vy = max(player.vy, 0.5); // gently stops upward movement
+      }
+
+      player.isMoving = true;
+    }
+  }
+}
+
 // ------------------------------------------------------------
 // animateCharacter() — Dynamic state animation processing
 // ------------------------------------------------------------
@@ -634,15 +702,15 @@ keyTilesList = keyTiles;
 // zone one spawn point (top-centre of the cluster).
 // ------------------------------------------------------------
 function groupCheckpointTiles(tileRects) {
-  const key = (x, y) => x + "," + y; // USE WORLD COORDS not tx/ty
+  const key = (tx, ty) => tx + "," + ty;
   const lookup = new Map();
-  for (const r of tileRects) lookup.set(key(r.x, r.y), r);
+  for (const r of tileRects) lookup.set(key(r.tx, r.ty), r);
 
   const visited = new Set();
   const groups = [];
 
   for (const start of tileRects) {
-    const startKey = key(start.x, start.y);
+    const startKey = key(start.tx, start.ty);
     if (visited.has(startKey)) continue;
 
     const queue = [start];
@@ -654,10 +722,10 @@ function groupCheckpointTiles(tileRects) {
       cluster.push(cur);
 
       const neighbours = [
-        [cur.x + TILE_SIZE, cur.y],
-        [cur.x - TILE_SIZE, cur.y],
-        [cur.x, cur.y + TILE_SIZE],
-        [cur.x, cur.y - TILE_SIZE],
+        [cur.tx + 1, cur.ty],
+        [cur.tx - 1, cur.ty],
+        [cur.tx, cur.ty + 1],
+        [cur.tx, cur.ty - 1],
       ];
       for (const [nx, ny] of neighbours) {
         const nk = key(nx, ny);
@@ -668,7 +736,10 @@ function groupCheckpointTiles(tileRects) {
       }
     }
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     for (const c of cluster) {
       minX = Math.min(minX, c.x);
       minY = Math.min(minY, c.y);
@@ -682,10 +753,11 @@ function groupCheckpointTiles(tileRects) {
       w: maxX - minX,
       h: maxY - minY,
       spawnX: (minX + maxX) / 2,
-      spawnY: minY - player.r - 4,
+      spawnY: minY - player.r - 4, // spawn just above the checkpoint tiles
     });
   }
 
+  // Left-to-right order so "furthest checkpoint reached" is just an index.
   groups.sort((a, b) => a.x - b.x);
   return groups;
 }
@@ -709,33 +781,61 @@ function resolveSolidCollisions() {
 // inside a solid tile.
 // ------------------------------------------------------------
 function resolveCircleRect(p, rect) {
+  // Find nearest point on tile to player circle
   const closestX = constrain(p.x, rect.x, rect.x + rect.w);
   const closestY = constrain(p.y, rect.y, rect.y + rect.h);
+
   const dx = p.x - closestX;
   const dy = p.y - closestY;
   const distSq = dx * dx + dy * dy;
 
   if (distSq >= p.r * p.r) return;
-  const d = Math.sqrt(distSq);
 
-  if (d > 0) {
-    const overlap = p.r - d;
-    p.x += (dx / d) * overlap;
-    p.y += (dy / d) * overlap;
-  } else {
-    const left = p.x - rect.x;
-    const right = rect.x + rect.w - p.x;
-    const top = p.y - rect.y;
-    const bottom = rect.y + rect.h - p.y;
-    const min = Math.min(left, right, top, bottom);
+  const dist = sqrt(distSq);
 
-    if (min === left) p.x = rect.x - p.r;
-    else if (min === right) p.x = rect.x + rect.w + p.r;
-    else if (min === top) {
-      p.y = rect.y - p.r;
-      if (p.vy > 0) p.vy = 0;
-      player.isGrounded = true;
-    } else p.y = rect.y + rect.h + p.r;
+  // If circle center is not exactly inside the tile corner/edge case
+  if (dist > 0) {
+    const overlap = p.r - dist;
+
+    // Push out mostly vertically if falling onto the tile
+    if (abs(dy) > abs(dx)) {
+      p.y += (dy / dist) * overlap;
+
+      if (dy < 0 && p.vy > 0) {
+        p.vy = 0;
+        p.isGrounded = true;
+      } else if (dy > 0 && p.vy < 0) {
+        p.vy = 0;
+      }
+    } else {
+      p.x += (dx / dist) * overlap;
+      p.vx = 0;
+    }
+
+    return;
+  }
+
+  // If the player center is inside the tile, push out by smallest distance
+  const pushLeft = abs(p.x - rect.x);
+  const pushRight = abs(rect.x + rect.w - p.x);
+  const pushTop = abs(p.y - rect.y);
+  const pushBottom = abs(rect.y + rect.h - p.y);
+
+  const minPush = min(pushLeft, pushRight, pushTop, pushBottom);
+
+  if (minPush === pushTop) {
+    p.y = rect.y - p.r;
+    if (p.vy > 0) p.vy = 0;
+    p.isGrounded = true;
+  } else if (minPush === pushBottom) {
+    p.y = rect.y + rect.h + p.r;
+    if (p.vy < 0) p.vy = 0;
+  } else if (minPush === pushLeft) {
+    p.x = rect.x - p.r;
+    p.vx = 0;
+  } else if (minPush === pushRight) {
+    p.x = rect.x + rect.w + p.r;
+    p.vx = 0;
   }
 }
 
@@ -777,10 +877,7 @@ function checkCheckpoints() {
     const cp = checkpoints[i];
     const overlapsX =
       player.x + player.r > cp.x && player.x - player.r < cp.x + cp.w;
-    const overlapsY =
-      player.y + player.r > cp.y && player.y - player.r < cp.y + cp.h;
-
-    if (overlapsX && overlapsY) {
+    if (overlapsX) {
       activeCheckpointIndex = i;
       lastCheckpoint = { x: cp.spawnX, y: cp.spawnY };
       console.log("Checkpoint activated:", i, lastCheckpoint);
@@ -819,13 +916,13 @@ function respawnPlayer() {
 // ------------------------------------------------------------
 
 function findClosestPassedCheckpoint(px, py) {
+  if (activeCheckpointIndex < 0) return null;
+
   let best = null;
   let minD = Infinity;
 
-  for (const cp of checkpoints) {
-    const centerX = cp.x + cp.w / 2;
-    if (centerX > px) continue; // only checkpoints already passed
-
+  for (let i = 0; i <= activeCheckpointIndex; i++) {
+    const cp = checkpoints[i];
     const d = dist(px, py, cp.spawnX, cp.spawnY);
     if (d < minD) {
       minD = d;
@@ -1606,7 +1703,8 @@ function keyPressed() {
     inStart &&
     player.jumpCooldown <= 0
   ) {
-    player.vy = -13;
+    //ORIGINAL JUMPING HEIGHT = 13
+    player.vy = -14;
     player.jumpCooldown = 30;
   }
 
