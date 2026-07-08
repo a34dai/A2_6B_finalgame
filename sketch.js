@@ -123,8 +123,8 @@ const FORM_FISH = "fish";
 const FORM_ORDER = [FORM_HUMAN, FORM_BIRD, FORM_FISH]; // defines forward-only progression
 
 let player = {
-  x: 50 * TILE_SIZE,
-  y: 10 * TILE_SIZE, // 17 for start
+  x: 4 * TILE_SIZE,
+  y: 17 * TILE_SIZE, // 17 for start
   vy: 1,
   vx: 0,
   r: 15,
@@ -164,7 +164,7 @@ let windZones = [];
 // ------------------------------------------------------------
 const WHIRLPOOL_SPRITE = {
   numFrames: 4, // 4 frames horizontal
-  animSpeed: 8, // Lower number = faster rotation speed
+  animSpeed: 15, // Lower number = faster rotation speed
   scale: 1.0, // Scale adjustment if needed to fit TILE_SIZE
 };
 
@@ -452,8 +452,8 @@ function shouldDrawArea(jsonFile) {
   return (
     viewRight > bounds.x - TILE_SIZE &&
     viewLeft < bounds.x + bounds.w + TILE_SIZE &&
-    viewBottom > bounds.y - TILE_SIZE &&
-    viewTop < bounds.y + bounds.h + TILE_SIZE
+    viewBottom > bounds.y - 10 * TILE_SIZE &&
+    viewTop < bounds.y + bounds.h + 5 * TILE_SIZE
   );
 }
 
