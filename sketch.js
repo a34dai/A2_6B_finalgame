@@ -1404,6 +1404,9 @@ function checkPortalEntrance() {
 
     if (overlapsX && overlapsY) {
       stopAllGameSounds();
+      if (runesound) {
+        runesound.play();
+      }
       gameState = STATE_WIN;
       console.log("Portal entered with enough runes.");
       return;

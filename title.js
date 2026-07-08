@@ -34,15 +34,23 @@ function draw() {
   }
 
   // Small red rectangle slightly beneath center
-  fill(255, 0, 0);
+  fill(255, 255, 255);
   noStroke();
-  rect(375, 260, 50, 40);
+  fill ("white");
+  textFont("Lancelot");
+  textSize(25);
+  text("Press Enter to Start", 310, 350);
   
 }
 
 function mousePressed() {
-  if (mouseX > 375 && mouseX < 425 && mouseY > 260 && mouseY < 300) {
+  if (mouseX > 375 && mouseX < 425 && mouseY > 320 && mouseY < 350) {
     window.location.href = 'game.html';
   }
 }
 
+function keyPressed() {
+  if (key === 'Enter') {
+    window.location.href = 'game.html';
+  }
+}

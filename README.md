@@ -5,7 +5,7 @@
 ## Description
 (Overview of game concept, mechanics, and player experience)
 This is a game that explores the nature of bipolar disability through a fantasy world. Players navigate a shifting world through involuntary transformations, requiring the players to adapt through a turbulent cycle.
-The core mechanics of the game is the involuntary state changes, the hazards, and the objectives. The players are forced to cycle through the different physical forms throughout the gameplay, adapting to each state. The hazards are palced around the mape depending on the state the player is in, creating a negative element to avoid. The objective guide the player through a clear path and make them create alternative solutions in their state to get the objectives.
+The core mechanics of the game is the involuntary state changes, the hazards, and the objectives. The players are forced to cycle through the different physical forms throughout the gameplay, adapting to each state. The hazards are placed around the map depending on the state the player is in, creating a negative element to avoid. The objective guide the player through a clear path and make them create alternative solutions in their state to get the objectives.
 The player goes through an emotional loop where they face tension vs. release. The bird form sparks high adrenaline anxiety and requires intense focus, whereas the fish is requires patience, and methodical calculation compared to the bird.
 
 ## Design Rationale (250 words or less)
