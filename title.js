@@ -1,0 +1,36 @@
+let titleFrame1;
+let titleFrame2;
+let currentFrame = 0;
+let frameTimer = 0;
+const frameInterval = 0.6;
+
+function preload() {
+  titleFrame1 = loadImage('assets/Title frame1.png');
+  titleFrame2 = loadImage('assets/Title frame2.png');
+}
+
+function setup() {
+  createCanvas(800, 450);
+  imageMode(CORNER);
+}
+
+function windowResized() {
+  // Prevent canvas from resizing with window
+}
+
+function draw() {
+  background(0);
+
+  frameTimer += deltaTime / 1000;
+
+  if (frameTimer >= frameInterval) {
+    frameTimer = 0;
+    currentFrame = currentFrame === 0 ? 1 : 0;
+  }
+
+  if (currentFrame === 0 && titleFrame1) {
+    image(titleFrame1, 0, 0, 800, 450);
+  } else if (currentFrame === 1 && titleFrame2) {
+    image(titleFrame2, 0, 0, 800, 450);
+  }
+}

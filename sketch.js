@@ -91,7 +91,7 @@ const HUMAN_GRAVITY = 0.9;
 const HUMAN_SPEED = 7;
 
 const FISH_SWIM_HORIZONTAL = 0.6; // left/right force
-const FISH_SWIM_UP = 0.4; // upward force — lower = harder to swim up
+const FISH_SWIM_UP = 0.1; // upward force — lower = harder to swim up
 const FISH_SWIM_DOWN = 0.9; // downward force — faster to sink than rise
 
 const FISH_STAMINA_MAX = 100;
@@ -746,13 +746,9 @@ function enforceLocationForm() {
     return;
   }
 
-const endBounds = getAreaWorldBounds(endArea);
-  const inEndArea =
-    player.x >= endBounds.x && player.x < endBounds.x + endBounds.w &&
-    player.y >= endBounds.y && player.y < endBounds.y + endBounds.h;
-
-  if (inEndArea) return; // ADDED — end area has no forced form
-
+  // Inside bird-area airspace means bird — but only within its actual
+  // x AND y bounds, since fishArea's x-range overlaps the last 33
+  // tiles of birdArea's x-range.
   const birdMinX = TILE_SIZE * startArea.mapWidth;
   const birdMaxX = birdMinX + TILE_SIZE * birdArea.mapWidth;
   const birdMaxY = TILE_SIZE * birdArea.mapHeight;
@@ -1265,10 +1261,8 @@ function checkWhirlpools() {
 }
 
 function updateMoveSpeed() {
-  if (player.form === FORM_FISH) {
-    moveSpeed = playerInWater()
-      ? (playerInSeaweed() ? 4 / SEAWEED_SLOW_FACTOR : 4)
-      : 6; // airborne/launched fish — pick a value that feels right
+  if (playerInWater()) {
+    moveSpeed = playerInSeaweed() ? 4 / SEAWEED_SLOW_FACTOR : 4;
   } else {
     moveSpeed = PLAYER_SPEED;
   }
@@ -1908,16 +1902,22 @@ function drawPlayer() {
 // R restarts. B skips to boss fight.
 // ------------------------------------------------------------
 function keyPressed() {
+  // Human jump — single press with cooldown
+  let inStart = player.x < TILE_SIZE * startArea.mapWidth;
   if (
     (key === "w" || key === "W" || keyCode === 87) &&
-    player.form === FORM_HUMAN &&
+    inStart &&
     player.jumpCooldown <= 0
   ) {
+    //ORIGINAL JUMPING HEIGHT = 13
     player.vy = -14;
     player.jumpCooldown = 30;
   }
 
-  if (keyCode === 87 && player.form === FORM_FISH) {
+  // Fish flap — tap only, not holdable
+  if (keyCode === 87 && playerInWater()) {
     player.flapQueued = true;
   }
+
+  // music.loop();
 }
