@@ -83,6 +83,16 @@ let runeFrame = 0;
 let runeTimer = 0;
 let runeSheet;
 
+const WIND_SPRITE = {
+  numFrames: 14,     // adjust to match wind.png's actual frame count
+  animSpeed: 6,     // lower = faster animation
+  scale: 0.2,       // tune to fit TILE_SIZE
+};
+
+let windFrame = 0;
+let windTimer = 0;
+
+
 const GRAVITY = 0.6; // 4.0  bird gravity? Calibrated downward pull
 const GRAVITY_AFTER_CHECKPOINT = GRAVITY * 1; // 60% of normal gravity after first checkpoint
 const FLAP_FORCE = -8; // -24 // Gives the exact velocity curve to hit 3 blocks high
@@ -110,8 +120,8 @@ const FORM_FISH = "fish";
 const FORM_ORDER = [FORM_HUMAN, FORM_BIRD, FORM_FISH]; // defines forward-only progression
 
 let player = {
-  x: 300 * TILE_SIZE,
-  y: 40 * TILE_SIZE, // 17 for start
+  x: 320 * TILE_SIZE,
+  y: 20 * TILE_SIZE, // 17 for start
   vy: 1,
   vx: 0,
   r: 15,
@@ -183,6 +193,8 @@ let spike4Img;
 let waterSurfaceImg;
 let portalClosedImg;
 let portalOpenImg;
+let windImg;
+let portalImg;
 
 let fishareaBG;
 let fishareaOverlay;
@@ -221,11 +233,14 @@ let playerStart = { x: 0, y: 0 }; // fallback spawn if no checkpoint reached yet
 let keyMap = new Map(); // world "x,y" -> collected boolean
 let keyTotal = 0;
 let keyCollected = 0;
-let allKeysCollected = false;
+let portalUnlocked = false;
 let whirlpoolTiles = []; // [{x,y,w,h}]
+let portalTiles = []; // [{x,y,w,h}] portal/door tiles
 let seaweedTiles = []; // [{x,y,w,h}] world-space rects — slows the fish, doesn't block it
 const SEAWEED_LAYER = "seaweed";
 const SEAWEED_SLOW_FACTOR = 2.5; // divides moveSpeed — tune to taste for "150% slower"
+const REQUIRED_PORTAL_KEYS = 3;
+const PORTAL_LAYER = "door";
 
 // ------------------------------------------------------------
 // GAME STATE
@@ -272,6 +287,10 @@ function preload() {
   humanSheet = loadImage("assets/images/human.png");
   whirlpoolImg = loadImage("assets/images/whirlpool.png");
   runeSheet = loadImage("assets/images/runes.png");
+  portalClosedImg = loadImage("assets/images/portalclosed.png");
+  portalOpenImg = loadImage("assets/images/portalopen.png");
+  windImg = loadImage("assets/images/wind.png"); 
+  portalImg = loadImage("assets/images/portalclosed.png");
 
   endbg = loadImage("assets/images/endareabg.png");
 
@@ -307,6 +326,9 @@ function setup() {
 
   HUMAN_SPRITE.frameWidth = humanSheet.width / HUMAN_SPRITE.numFrames;
   HUMAN_SPRITE.frameHeight = humanSheet.height / 2;
+
+  WIND_SPRITE.frameWidth = windImg.width / WIND_SPRITE.numFrames; // ADDED
+  WIND_SPRITE.frameHeight = windImg.height;
 
   const tilesArray = birdArea.layers?.[0]?.tiles || [];
   for (let i = 0; i < tilesArray.length; i++) {
@@ -345,7 +367,7 @@ windZones.push({
 windZones.push({
   x: TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth),
   y: TILE_SIZE * (birdArea.mapHeight - endArea.mapHeight / 5),
-  w: 6 * TILE_SIZE,
+  w: 5 * TILE_SIZE,
   h: endArea.mapHeight / 5  * TILE_SIZE,
   fromForm: FORM_FISH,
   transformTo: FORM_HUMAN,
@@ -494,18 +516,27 @@ function draw() {
       whirlpoolFrame = (whirlpoolFrame + 1) % WHIRLPOOL_SPRITE.numFrames;
     }
 
-    runeTimer++;
-    if (runeTimer >= RUNE_SPRITE.animSpeed) {
-      runeTimer = 0;
-      runeFrame = (runeFrame + 1) % RUNE_SPRITE.numFrames;
+    windTimer++;
+    if (windTimer >= WIND_SPRITE.animSpeed) {
+      windTImer = 0;
+      windFrame = (windFrame + 1) % WIND_SPRITE.numFrames;
     }
+
+    //runeTimer++;
+    //if (runeTimer >= RUNE_SPRITE.animSpeed) {
+     //runeTimer = 0;
+      //runeFrame = (runeFrame + 1) % RUNE_SPRITE.numFrames;
+    //}
 
     // ADDED — tile physics: solid blockage, hazards, checkpoints
     resolveSolidCollisions();
     checkWhirlpools();
     checkKeys();
+    checkPortalEntrance();
     checkHazardCollisions();
     checkCheckpoints();
+
+    drawWindZones(); 
 
     animateCharacter();
     drawPlayer();
@@ -613,6 +644,29 @@ function checkWindZones() {
 
   if (!inAnyZone) {
     player.windTimer = 0;
+  }
+}
+
+function drawWindZones() {
+  if (!windImg) return;
+
+  const sx = windFrame * WIND_SPRITE.frameWidth;
+  const sy = 0;
+
+  for (const z of windZones) {
+    push();
+    imageMode(CORNER);
+
+    image(
+      windImg,
+      z.x, z.y,      // position: top-left of the zone
+      z.w, z.h,       // size: stretched to fill the entire zone
+      sx, sy,
+      WIND_SPRITE.frameWidth,
+      WIND_SPRITE.frameHeight,
+    );
+
+    pop();
   }
 }
 
@@ -840,6 +894,7 @@ function processJsonLayers(
     const isKey = layer.name === KEY_LAYER;
     const isWhirlpool = layer.name === WHIRLPOOL_LAYER;
     const isSeaweed = layer.name === SEAWEED_LAYER; // ADDED
+    const isPortal = layer.name === PORTAL_LAYER;
 
     if (
       !isSolid &&
@@ -848,7 +903,8 @@ function processJsonLayers(
       !isKey &&
       !isWhirlpool &&
       !isWater &&
-      !isSeaweed // ADDED
+      !isSeaweed &&
+      !isPortal // ADDED
     )
       continue;
 
@@ -868,6 +924,7 @@ function processJsonLayers(
       else if (isWhirlpool) whirlpoolTiles.push(rect);
       else if (isWater) waterTiles.push(rect);
       else if (isSeaweed) seaweedTiles.push(rect); // ADDED
+      else if (isPortal) portalTiles.push(rect);
     }
   }
 }
@@ -889,6 +946,7 @@ function buildTileCollision() {
   const checkpointTiles = [];
   const keyTiles = [];
   whirlpoolTiles = [];
+  portalTiles = [];
   waterTiles = [];
   seaweedTiles = []; // ADDED
 
@@ -931,9 +989,9 @@ function buildTileCollision() {
   keyMap = new Map();
   keyTotal = keyTilesList.length;
   keyCollected = 0;
-  allKeysCollected = false;
+  portalUnlocked = false;
   for (const k of keyTilesList) {
-    const mk = k.x + "," + k.y;
+    const mk = getWorldTileKey(k.x, k.y);
     keyMap.set(mk, false);
   }
 }
@@ -1211,11 +1269,19 @@ function respawnFromHazard() {
 // Detects overlap with coin tiles and marks them collected.
 // When all coins are collected sets `allCoinCollected`.
 // ------------------------------------------------------------
+function getWorldTileKey(x, y) {
+  return `${Math.round(x)},${Math.round(y)}`;
+}
+
+function portalIsUnlocked() {
+  return keyCollected >= REQUIRED_PORTAL_KEYS;
+}
+
 function checkKeys() {
-  if (keyTotal === 0 || allKeysCollected) return;
+  if (gameState !== STATE_PLAY || keyTotal === 0 || portalUnlocked) return;
 
   for (const t of keyTilesList) {
-    const mapKey = t.x + "," + t.y;
+    const mapKey = getWorldTileKey(t.x, t.y);
     if (keyMap.get(mapKey)) continue; // already collected
 
     const cx = t.x + t.w / 2;
@@ -1225,14 +1291,25 @@ function checkKeys() {
     if (d < player.r + TILE_SIZE * 0.35) {
       keyMap.set(mapKey, true);
       keyCollected++;
+      portalUnlocked = portalIsUnlocked();
 
       if (runesound) runesound.play(); // NEW — plays on every key pickup
+      console.log("Rune collected:", keyCollected, "/", keyTotal);
+    }
+  }
+}
 
-      if (keyCollected >= keyTotal) {
-        allKeysCollected = true;
-        gameState = STATE_WIN;
-        console.log("All keys collected — level can be completed!");
-      }
+function checkPortalEntrance() {
+  if (gameState !== STATE_PLAY || !portalUnlocked) return;
+
+  for (const t of portalTiles) {
+    const overlapsX = player.x + player.r > t.x && player.x - player.r < t.x + t.w;
+    const overlapsY = player.y + player.r > t.y && player.y - player.r < t.y + t.h;
+
+    if (overlapsX && overlapsY) {
+      gameState = STATE_WIN;
+      console.log("Portal entered with enough runes.");
+      return;
     }
   }
 }
@@ -1373,6 +1450,10 @@ function drawTiles(jsonFile) {
     image(endbg, TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth), TILE_SIZE * (birdArea.mapHeight - endArea.mapHeight), endArea.mapWidth * TILE_SIZE, endArea.mapHeight * TILE_SIZE);
   }
 
+  if (jsonFile === endArea && portalImg) {
+    image(portalImg, TILE_SIZE * (14 + startArea.mapWidth + birdArea.mapWidth), TILE_SIZE * (birdArea.mapHeight - endArea.mapHeight + 3), TILE_SIZE * 2, TILE_SIZE * 3);
+  }
+
   // Second pass: draw all non-water layers
   // For birdArea, draw the bg green layer first, then the cavebg image,
   // then all remaining non-water layers so cavebg stays under the rest.
@@ -1398,7 +1479,7 @@ function drawTiles(jsonFile) {
     // top-right corner of the birdArea section.
     const fishAreaStartX =
       TILE_SIZE * (startArea.mapWidth + birdArea.mapWidth - 37);
-    const buffer = 2 * TILE_SIZE; // small gap before fishArea begins
+    const buffer = -7 * TILE_SIZE; // small gap before fishArea begins
 
     const caveX = fishAreaStartX - buffer - cavebg.width;
     const caveY = mapYOffset;
@@ -1452,7 +1533,7 @@ function drawTiles(jsonFile) {
 
       // If this is a key tile and it has been collected, skip drawing it
       if (layer.name === KEY_LAYER) {
-        const mapKey = x + "," + y;
+        const mapKey = getWorldTileKey(x, y);
         if (keyMap.get(mapKey)) {
           pop();
           continue;
@@ -1624,13 +1705,15 @@ function drawTiles(jsonFile) {
           fill(tileColor(layer.name, t.id));
           rect(x, y, TILE_SIZE, TILE_SIZE);
         }
-      } else if (layer.name === "door") {
-        if (allKeysCollected) {
-          fill(80, 180, 80);
+      } else if (layer.name === PORTAL_LAYER) {
+        const portalImg = portalUnlocked ? portalOpenImg : portalClosedImg;
+        if (portalImg) {
+          imageMode(CENTER);
+          image(portalImg, x + TILE_SIZE / 2, y + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE);
         } else {
-          fill(40, 40, 40);
+          fill(portalUnlocked ? 80 : 40, 180, 80);
+          rect(x, y, TILE_SIZE, TILE_SIZE);
         }
-        rect(x, y, TILE_SIZE, TILE_SIZE);
       } else if (layer.name === CHECKPOINT_LAYER) {
         // Flag only on the leftmost tile of each checkpoint zone
         for (const cp of checkpoints) {
@@ -1910,22 +1993,17 @@ function drawPlayer() {
 // R restarts. B skips to boss fight.
 // ------------------------------------------------------------
 function keyPressed() {
-  // Human jump — single press with cooldown
-  let inStart = player.x < TILE_SIZE * startArea.mapWidth;
-  if (
-    (key === "w" || key === "W" || keyCode === 87) &&
-    inStart &&
-    player.jumpCooldown <= 0
-  ) {
-    //ORIGINAL JUMPING HEIGHT = 13
+  const canJump =
+    player.form === FORM_HUMAN &&
+    !playerInWater() &&
+    player.jumpCooldown <= 0;
+
+  if ((key === "w" || key === "W" || keyCode === 87) && canJump) {
     player.vy = -14;
     player.jumpCooldown = 30;
   }
 
-  // Fish flap — tap only, not holdable
   if (keyCode === 87 && playerInWater()) {
     player.flapQueued = true;
   }
-
-  // music.loop();
 }
