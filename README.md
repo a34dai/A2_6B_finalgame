@@ -10,6 +10,7 @@ The player goes through an emotional loop where they face tension vs. release. T
 ## Design Rationale 
 
 **Involuntary State-shifting**
+
 2D Human form
 - An upright posture with 2 distinct legs and a grounded stance implies a familiar baseline of control where the player is bound to the floor unless actively jumping
 
