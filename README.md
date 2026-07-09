@@ -115,7 +115,7 @@ Post-Showcase 2 planned improvements:
 
 [4] Liecio. Diamond found. https://pixabay.com/sound-effects/film-special-effects-diamond-found-190255/ 
 
-[5] DRAGON STUDIO. Underwate rambience https://pixabay.com/sound-effects/nature-underwater-ambience-376890/
+[5] DRAGON STUDIO. Underwater ambience https://pixabay.com/sound-effects/nature-underwater-ambience-376890/
 
 [6] Nakarada. 2020. Adventure | Royalty Free Medieval Fantasy Music. https://www.youtube.com/watch?v=7_cwKd81z7Q 
 
