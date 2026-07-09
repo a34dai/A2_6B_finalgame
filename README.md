@@ -7,8 +7,8 @@ This is a game that explores the nature of bipolar disability through a fantasy 
 The core mechanics of the game is the involuntary state changes, the hazards, and the objectives. The players are forced to cycle through the different physical forms throughout the gameplay, adapting to each state. The hazards are placed around the map depending on the state the player is in, creating failure states.The objectives centralize the player in their exploration of the fantasy world, creating a clear path.
 The player goes through an emotional loop where they face tension vs. release. The bird form sparks high adrenaline anxiety and requires intense focus, whereas the fish requires patience, and methodical calculation compared to the bird.
 
-## Design Rationale (250 words or less)
-How affordances guide player understanding and interaction.
+## Design Rationale 
+
 **Involuntary State-shifting**
 2D Human form
 - An upright posture with 2 distinct legs and a grounded stance implies a familiar baseline of control where the player is bound to the floor unless actively jumping
@@ -21,7 +21,7 @@ Fish Form
 - The visual cue of the character turning into a fish and the sudden drop in movement speed implies gravity-driven sinking
 - The stamina bar that appeared beside the fish implies that the fish would eventually run out of energy, needing time to recharge (it is much easier to sink than rise, mirroring depressive feelings).
 
-How GameFlow principles support learning and engagement.
+How GameFlow principles support learning and engagement:
 - Concentration: The game maintains engagement through structured pacing, matching each rune with an obviously corresponding gate 
 - Challenge: The player needs to learn different mechanics in different situations of navigating obstacles to acquire runes
 - Player Skill: There is space for players to play around with/practice the mechanic of their form before advancing to harder areas. Obstacles start off simple and increase in difficulty throughout the level (e.g. spike frequency, parkour difficulty). 
@@ -30,7 +30,8 @@ How GameFlow principles support learning and engagement.
 - Feedback: Each time the player collects a rune, the rune counter will increase visibly towards a total rune count, an audible chime is played, and the area's barrier disappears, indicating that the player is making progress
 - Immersion: sound and visuals work together to create an immersive fantasy environment, changing to emphasise differences between states.
 
-How the disability is integrated into the design;
+How the disability is integrated into the design:
+
 We integrated the disability (bipolar) into the core mechanics of the game. By forcing the player through state changes, they must navigate that state's altered movement that mimics different mindstates of the disability, in inconvenient environments that seem to work against them. 
 - The jarringly fast bird speed simulates how people with BPD have to constantly adjust to societal environments that weren't designed with them in mind, and how they can't simply force themselves to slow down.
 - The fish's constant sinking pressure, diminishing stamina, and high-located objectives simulate how people with BPD are expected to fulfill high-performance societal responsibilities, regardless of their mental state. Instead of being able to overpower the constant sinking, players must strategically compensate by using momentum and resting spots in order to travel upwards.
@@ -101,17 +102,22 @@ Post-Showcase 2 planned improvements:
 | `assets/sounds/runesound` [4]| Liecio, Diamond found— Pixabay.com |
 | `assets/sounds/fishareasound` [5]| DRAGON STUDIO, Underwater ambience — Pixabay.com |
 | `assets/sounds/humanBGound` [6]| Nakarada, Adventure | Royalty Free Medieval Fantasy Music — Youtube.com  |
-| `assets/sounds/birdBGsound` [7]| BreakingCopyright — Royalty Free Music
-, Epic Battle Music (No Copyright) "Dragon Castle" by Makai-symphony— Youtube.com  |
+| `assets/sounds/birdBGsound` [7]| BreakingCopyright — Royalty Free Music, Epic Battle Music (No Copyright) "Dragon Castle" by Makai-symphony — Youtube.com  |
 
 ## References
 
 [1] free sound community.  wingflap_fast-2. https://pixabay.com/sound-effects/nature-wingflap-fast-2-77739/
+
 [2] Sound shelf studio. UI loading end fail http://pixabay.com/sound-effects/film-special-effects-ui-loading-end-fail-522858/
+
 [3]  Joentnt. Walk on grass 3. https://pixabay.com/sound-effects/film-special-effects-walk-on-grass-3-291986/ 
-[4] Liecio. Diamond found. https://pixabay.com/sound-effects/film-special-effects-diamond-found-190255/ ad
+
+[4] Liecio. Diamond found. https://pixabay.com/sound-effects/film-special-effects-diamond-found-190255/ 
+
 [5] DRAGON STUDIO. Underwate rambience https://pixabay.com/sound-effects/nature-underwater-ambience-376890/
+
 [6] Nakarada. 2020. Adventure | Royalty Free Medieval Fantasy Music. https://www.youtube.com/watch?v=7_cwKd81z7Q 
+
 [7] BreakingCopyright — Royalty Free Music. 2018. Epic Battle Music (No Copyright) "Dragon Castle" by Makai-symphony https://www.youtube.com/watch?v=9gBTKiVqprE 
 
 
