@@ -3,7 +3,6 @@
 ## Group Number: 6B
 
 ## Description
-(Overview of game concept, mechanics, and player experience)
 This is a game that explores the nature of bipolar disability through a fantasy world. Players navigate a shifting world through involuntary transformations, requiring the players to adapt through a turbulent cycle.
 The core mechanics of the game is the involuntary state changes, the hazards, and the objectives. The players are forced to cycle through the different physical forms throughout the gameplay, adapting to each state. The hazards are placed around the map depending on the state the player is in, creating failure states.The objectives centralize the player in their exploration of the fantasy world, creating a clear path.
 The player goes through an emotional loop where they face tension vs. release. The bird form sparks high adrenaline anxiety and requires intense focus, whereas the fish requires patience, and methodical calculation compared to the bird.
@@ -29,8 +28,7 @@ How GameFlow principles support learning and engagement.
 - Control: WASD
 - Clear goals: There has always been one goal (which is to collect all the runes and go through the portal). Each segment of the map is barred off until its corresponding rune is picked up, eliminating potential for players diverging from the goal.
 - Feedback: Each time the player collects a rune, the rune counter will increase visibly towards a total rune count, an audible chime is played, and the area's barrier disappears, indicating that the player is making progress
-- Immersion: 
-- Social: 
+- Immersion: sound and visuals work together to create an immersive fantasy environment, changing to emphasise differences between states.
 
 How the disability is integrated into the design;
 We integrated the disability (bipolar) into the core mechanics of the game. By forcing the player through state changes, they must navigate that state's altered movement that mimics different mindstates of the disability, in inconvenient environments that seem to work against them. 
@@ -97,7 +95,24 @@ Post-Showcase 2 planned improvements:
 | `assets/images/watersuface.png` | Hanna Park |
 | `assets/images/whirlpool.png` | Janelle Lai |
 | `assets/images/wind.png` | Janelle Lai |
+| `assets/sounds/flappingsound` [1]| free sound community, wingflap_fast-2— Pixabay.com  
+| `assets/sounds/diesound` [2]| Sound shelf studio, UI loading end fail — Pixabay.com  
+| `assets/sounds/walkingsound` [3]| Joentnt, Walk on grass 3 — Pixabay.com |
+| `assets/sounds/runesound` [4]| Liecio, Diamond found— Pixabay.com |
+| `assets/sounds/fishareasound` [5]| DRAGON STUDIO, Underwater ambience — Pixabay.com |
+| `assets/sounds/humanBGound` [6]| Nakarada, Adventure | Royalty Free Medieval Fantasy Music — Youtube.com  |
+| `assets/sounds/birdBGsound` [7]| BreakingCopyright — Royalty Free Music
+, Epic Battle Music (No Copyright) "Dragon Castle" by Makai-symphony— Youtube.com  |
 
 ## References
 
-N/A
+[1] free sound community.  wingflap_fast-2. https://pixabay.com/sound-effects/nature-wingflap-fast-2-77739/
+[2] Sound shelf studio. UI loading end fail http://pixabay.com/sound-effects/film-special-effects-ui-loading-end-fail-522858/
+[3]  Joentnt. Walk on grass 3. https://pixabay.com/sound-effects/film-special-effects-walk-on-grass-3-291986/ 
+[4] Liecio. Diamond found. https://pixabay.com/sound-effects/film-special-effects-diamond-found-190255/ ad
+[5] DRAGON STUDIO. Underwate rambience https://pixabay.com/sound-effects/nature-underwater-ambience-376890/
+[6] Nakarada. 2020. Adventure | Royalty Free Medieval Fantasy Music. https://www.youtube.com/watch?v=7_cwKd81z7Q 
+[7] BreakingCopyright — Royalty Free Music. 2018. Epic Battle Music (No Copyright) "Dragon Castle" by Makai-symphony https://www.youtube.com/watch?v=9gBTKiVqprE 
+
+
+

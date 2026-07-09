@@ -1884,7 +1884,7 @@ function tileColor(layerName, id) {
     case "seaweed":
       return color(40, 140, 60); // green — solid
     case "key":
-      return color(230, 200, 80); // gold key
+      return color(230, 200,  80); // gold key
     case "whirlpool":
       return color(30, 100, 200); // blue whirlpool
     case "sand":
